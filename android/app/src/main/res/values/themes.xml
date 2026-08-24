@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.FujiRecipes" parent="android:Theme.Material.Light.NoActionBar">
-        <item name="android:statusBarColor">@android:color/transparent</item>
-        <item name="android:windowLightStatusBar">true</item>
+    <!-- Dark warm background matches the app canvas; avoids white flash
+         during the system splash / activity start. -->
+    <style name="Theme.FujiRecipes" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#171310</item>
+        <item name="android:statusBarColor">#171310</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:navigationBarColor">#171310</item>
     </style>
 </resources>

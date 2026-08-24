@@ -75,63 +75,67 @@ fun FujiApp(viewModel: FujiViewModel = viewModel()) {
         return
     }
 
-    // Global screen transition: slide + fade between destinations.
+    // Global screen transition: gentle slide + fade. The MainScaffold (tabs)
+    // stays mounted; only the inner destination animates.
     AnimatedContent(
         targetState = screen,
         transitionSpec = {
-            (slideInHorizontally(tween(260)) { it / 6 } + fadeIn(tween(220)))
-                .togetherWith(slideOutHorizontally(tween(220)) { -it / 8 } + fadeOut(tween(180)))
+            (slideInHorizontally(tween(220)) { it / 10 } + fadeIn(tween(180)))
+                .togetherWith(slideOutHorizontally(tween(180)) { -it / 12 } + fadeOut(tween(140)))
         },
         label = "screenTransition",
     ) { target ->
-        when (val s = target) {
-            is Screen.Editor -> {
-                BackHandler { viewModel.pop() }
-                EditorScreen(
-                    viewModel = viewModel,
-                    recipeId = s.recipeId,
-                    fromSlot = s.fromSlot,
-                    assignOnSave = s.assignOnSave,
-                    collectionId = s.collectionId,
-                    onBack = { viewModel.pop() },
-                )
-            }
-            is Screen.Collection -> {
-                BackHandler { viewModel.pop() }
-                CollectionScreen(
-                    viewModel = viewModel,
-                    collectionId = s.collectionId,
-                    collectionName = s.name,
-                    onBack = { viewModel.pop() },
-                )
-            }
-            is Screen.DiscoverCollection -> {
-                BackHandler { viewModel.pop() }
-                DiscoverCollectionScreen(
-                    viewModel = viewModel,
-                    collectionId = s.id,
-                    collectionName = s.name,
-                    onBack = { viewModel.pop() },
-                )
-            }
-            is Screen.DiscoverRecipeDetail -> {
-                BackHandler { viewModel.pop() }
-                DiscoverRecipeDetailScreen(
-                    viewModel = viewModel,
-                    collectionId = s.collectionId,
-                    recipeId = s.recipeId,
-                    onBack = { viewModel.pop() },
-                )
-            }
-            else -> {
-                BackHandler { /* root */ }
-                MainScaffold(
-                    viewModel = viewModel,
-                    current = target,
-                    busy = busy,
-                    snackbar = snackbar,
-                    onNavigate = { viewModel.push(it) },
-                )
+        val isRoot = target is Screen.Active || target is Screen.Backlog || target is Screen.Discover
+        if (isRoot) {
+            BackHandler { /* root */ }
+            MainScaffold(
+                viewModel = viewModel,
+                current = target,
+                busy = busy,
+                snackbar = snackbar,
+                onNavigate = { viewModel.push(it) },
+            )
+        } else {
+            when (val s = target) {
+                is Screen.Editor -> {
+                    BackHandler { viewModel.pop() }
+                    EditorScreen(
+                        viewModel = viewModel,
+                        recipeId = s.recipeId,
+                        fromSlot = s.fromSlot,
+                        assignOnSave = s.assignOnSave,
+                        collectionId = s.collectionId,
+                        onBack = { viewModel.pop() },
+                    )
+                }
+                is Screen.Collection -> {
+                    BackHandler { viewModel.pop() }
+                    CollectionScreen(
+                        viewModel = viewModel,
+                        collectionId = s.collectionId,
+                        collectionName = s.name,
+                        onBack = { viewModel.pop() },
+                    )
+                }
+                is Screen.DiscoverCollection -> {
+                    BackHandler { viewModel.pop() }
+                    DiscoverCollectionScreen(
+                        viewModel = viewModel,
+                        collectionId = s.id,
+                        collectionName = s.name,
+                        onBack = { viewModel.pop() },
+                    )
+                }
+                is Screen.DiscoverRecipeDetail -> {
+                    BackHandler { viewModel.pop() }
+                    DiscoverRecipeDetailScreen(
+                        viewModel = viewModel,
+                        collectionId = s.collectionId,
+                        recipeId = s.recipeId,
+                        onBack = { viewModel.pop() },
+                    )
+                }
+                else -> {}
             }
         }
     }
