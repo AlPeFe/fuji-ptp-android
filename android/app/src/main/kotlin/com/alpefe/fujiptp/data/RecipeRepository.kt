@@ -110,14 +110,13 @@ class RecipeRepository(private val dao: RecipeDao) {
     }
 
     /**
-     * Deletes a collection (except the default "Todas"). The app always
-     * keeps at least one collection: the last non-default one cannot be
-     * removed.
+     * Deletes a collection. The default collection cannot be deleted, but
+     * any other collection can — including the last remaining one. If no
+     * collections exist, the user simply creates one before adding recipes.
      */
     suspend fun deleteCollection(id: Long): Boolean {
         val collection = dao.getCollection(id) ?: return false
         if (collection.isDefault) return false
-        if (dao.collectionCount() <= 1) return false
         dao.clearCollection(id)
         dao.deleteCollection(id)
         return true

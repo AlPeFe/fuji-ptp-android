@@ -48,6 +48,7 @@ sealed interface Screen {
     data object Discover : Screen
     data class Collection(val collectionId: Long, val name: String) : Screen
     data class DiscoverCollection(val id: String, val name: String) : Screen
+    data class DiscoverRecipeDetail(val collectionId: String, val recipeId: String) : Screen
     data class Editor(
         val recipeId: Long?,
         val fromSlot: Int?,
@@ -430,7 +431,7 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
                 if (selectedCollectionId.value == id) selectedCollectionId.value = null
                 notifyUser("Colección eliminada")
             } else {
-                notifyUser("No se puede eliminar: debe quedar al menos una colección")
+                notifyUser("La colección por defecto no se puede eliminar")
             }
         }
     }

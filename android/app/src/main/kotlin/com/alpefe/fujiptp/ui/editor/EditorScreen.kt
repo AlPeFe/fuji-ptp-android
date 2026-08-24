@@ -102,16 +102,18 @@ fun EditorScreen(
     val connected by viewModel.connected.collectAsStateWithLifecycle()
     val busy by viewModel.busy.collectAsStateWithLifecycle()
 
-    var recipe by remember { mutableStateOf<RecipeModel?>(null) }
+    var recipe by remember(recipeId) {
+        // New recipes render immediately (no blank flash); saved recipes
+        // load async below.
+        mutableStateOf(if (recipeId != null) null else RecipeModel.newDraft())
+    }
     var pickFilm by remember { mutableStateOf(false) }
     var pickSlot by remember { mutableStateOf(false) }
     var dirty by remember { mutableStateOf(false) }
 
     LaunchedEffect(recipeId) {
-        recipe = if (recipeId != null) {
-            viewModel.getRecipe(recipeId) ?: RecipeModel.newDraft()
-        } else {
-            RecipeModel.newDraft()
+        if (recipeId != null) {
+            recipe = viewModel.getRecipe(recipeId) ?: RecipeModel.newDraft()
         }
     }
 

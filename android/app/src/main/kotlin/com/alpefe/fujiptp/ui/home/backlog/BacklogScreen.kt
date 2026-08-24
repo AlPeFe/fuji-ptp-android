@@ -101,10 +101,30 @@ fun BacklogScreen(viewModel: FujiViewModel) {
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    "${collections.size} colección${if (collections.size == 1) "" else "es"}",
+                    if (collections.isEmpty()) {
+                        "Crea tu primera colección para empezar"
+                    } else {
+                        "${collections.size} colección${if (collections.size == 1) "" else "es"}"
+                    },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
+        }
+        if (collections.isEmpty()) {
+            item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(2) }) {
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(top = 48.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        "Aún no tienes colecciones.\nToca + para crear la primera.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = InkSoft,
+                    )
+                }
             }
         }
         items(collections, key = { it.id }) { collection ->

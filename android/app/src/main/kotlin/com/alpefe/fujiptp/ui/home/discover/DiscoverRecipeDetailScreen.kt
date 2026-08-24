@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -24,9 +23,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -45,10 +43,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.alpefe.fujiptp.data.DiscoverData
-import com.alpefe.fujiptp.data.DiscoverRecipe
 import com.alpefe.fujiptp.data.FilmSimulation
 import com.alpefe.fujiptp.ui.FujiViewModel
-import com.alpefe.fujiptp.ui.Screen
 import com.alpefe.fujiptp.ui.components.FilmSimulationChip
 import com.alpefe.fujiptp.ui.theme.Canvas
 import com.alpefe.fujiptp.ui.theme.Ink
@@ -58,30 +54,32 @@ import com.alpefe.fujiptp.ui.theme.Radius
 import com.alpefe.fujiptp.ui.theme.Surface
 
 /**
- * Inside a predefined Discover collection. Read-only: recipes here cannot be
- * edited or deleted; the user can only import one (or all) into their own
- * collections.
+ * Detail view of a Discover recipe: shows the recipe info and lets the
+ * user import it into one of their collections.
  */
 @Composable
-fun DiscoverCollectionScreen(
+fun DiscoverRecipeDetailScreen(
     viewModel: FujiViewModel,
     collectionId: String,
-    collectionName: String,
+    recipeId: String,
     onBack: () -> Unit,
 ) {
     val collection = DiscoverData.byId(collectionId)
-    if (collection == null) {
+    val recipe = collection?.recipes?.firstOrNull { it.name == recipeId }
+    if (recipe == null) {
         onBack()
         return
     }
+    val film = FilmSimulation.entries.firstOrNull { it.name == recipe.filmSimulation }
+        ?: FilmSimulation.ClassicChrome
     val collections by viewModel.collections.collectAsStateWithLifecycle()
-    var importTarget by remember { mutableStateOf<DiscoverRecipe?>(null) }
+    var showTargets by remember { mutableStateOf(false) }
 
     Box(Modifier.fillMaxSize().background(Canvas)) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             item {
                 Row(
@@ -94,59 +92,99 @@ fun DiscoverCollectionScreen(
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = Ink)
                     }
-                    Column(Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                Modifier
-                                    .size(34.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(collection.colorHex).copy(alpha = 0.85f)),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Text(collection.logo, style = MaterialTheme.typography.bodyLarge)
-                            }
-                            Spacer(Modifier.width(10.dp))
-                            Column {
-                                Text(
-                                    collection.name,
-                                    style = MaterialTheme.typography.headlineMedium,
-                                    color = MaterialTheme.colorScheme.onBackground,
-                                )
-                                Text(
-                                    collection.tagline,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
+                    Text(
+                        "Detalle de recipe",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onBackground,
+                    )
+                }
+            }
+            item {
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(Radius.card))
+                        .background(Surface)
+                        .padding(20.dp),
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            Modifier
+                                .size(52.dp)
+                                .clip(CircleShape)
+                                .background(Color(collection.colorHex).copy(alpha = 0.85f)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(collection.logo, style = MaterialTheme.typography.titleLarge)
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                recipe.name,
+                                style = MaterialTheme.typography.headlineMedium,
+                                color = MaterialTheme.colorScheme.onBackground,
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                "${collection.name} · colección pública",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = InkSoft,
+                            )
                         }
                     }
+                    Spacer(Modifier.height(16.dp))
+                    FilmSimulationChip(film)
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        recipe.description,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
                 }
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    "Colección pública · no editable. Importa las recipes que quieras a tu biblioteca.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = InkSoft,
-                )
             }
-            items(collection.recipes) { recipe ->
-                DiscoverRecipeCard(
-                    recipe = recipe,
-                    onClick = {
-                        viewModel.push(
-                            Screen.DiscoverRecipeDetail(collection.id, recipe.name),
-                        )
-                    },
-                    onImport = { importTarget = recipe },
-                )
+            item {
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(Radius.card))
+                        .background(Surface)
+                        .padding(20.dp),
+                ) {
+                    Text(
+                        "Valores de la recipe",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onBackground,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    DetailRow("Simulación", film.label)
+                    DetailRow("Highlight", "+1")
+                    DetailRow("Shadow", "-1")
+                    DetailRow("Color", "+2")
+                    DetailRow("Grain", "Strong · Small")
+                    DetailRow("DR", "DR200")
+                }
+            }
+            item {
+                Button(
+                    onClick = { showTargets = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(Radius.control),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = PeachDeep,
+                        contentColor = Color(0xFF3A1D0F),
+                    ),
+                ) {
+                    Icon(Icons.Filled.Download, null, Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Importar a mi biblioteca")
+                }
             }
         }
     }
 
-    importTarget?.let { recipe ->
-        val film = FilmSimulation.entries.firstOrNull { it.name == recipe.filmSimulation }
-            ?: FilmSimulation.ClassicChrome
+    if (showTargets) {
         AlertDialog(
-            onDismissRequest = { importTarget = null },
+            onDismissRequest = { showTargets = false },
             containerColor = MaterialTheme.colorScheme.surface,
             shape = RoundedCornerShape(Radius.card),
             title = { Text("Importar recipe", style = MaterialTheme.typography.titleLarge) },
@@ -172,7 +210,8 @@ fun DiscoverCollectionScreen(
                                 .background(Color(collection.colorHex).copy(alpha = 0.5f))
                                 .clickable {
                                     viewModel.importDiscoverRecipe(recipe.name, recipe.filmSimulation, collection.id)
-                                    importTarget = null
+                                    showTargets = false
+                                    onBack()
                                 }
                                 .padding(horizontal = 14.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
@@ -192,57 +231,31 @@ fun DiscoverCollectionScreen(
             },
             confirmButton = {},
             dismissButton = {
-                TextButton(onClick = { importTarget = null }) { Text("Cancelar") }
+                TextButton(onClick = { showTargets = false }) { Text("Cancelar") }
             },
         )
     }
 }
 
 @Composable
-private fun DiscoverRecipeCard(
-    recipe: DiscoverRecipe,
-    onClick: () -> Unit,
-    onImport: () -> Unit,
-) {
-    val film = FilmSimulation.entries.firstOrNull { it.name == recipe.filmSimulation }
-        ?: FilmSimulation.ClassicChrome
-    Card(
-        modifier = Modifier
+private fun DetailRow(label: String, value: String) {
+    Row(
+        Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(Radius.card))
-            .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor = Surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        shape = RoundedCornerShape(Radius.card),
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        recipe.name,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Spacer(Modifier.height(6.dp))
-                    FilmSimulationChip(film)
-                }
-            }
-            Spacer(Modifier.height(8.dp))
-            Text(
-                recipe.description,
-                style = MaterialTheme.typography.bodySmall,
-                color = InkSoft,
-            )
-            Spacer(Modifier.height(12.dp))
-            FilledTonalButton(
-                onClick = onImport,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(Radius.control),
-            ) {
-                Icon(Icons.Filled.Download, null, Modifier.size(16.dp))
-                Spacer(Modifier.width(6.dp))
-                Text("Importar a mi biblioteca")
-            }
-        }
+        Text(
+            label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = InkSoft,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            value,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            fontWeight = FontWeight.SemiBold,
+        )
     }
 }

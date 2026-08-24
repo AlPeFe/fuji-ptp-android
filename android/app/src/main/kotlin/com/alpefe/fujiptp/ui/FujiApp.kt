@@ -5,6 +5,8 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -30,7 +32,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -42,6 +46,7 @@ import com.alpefe.fujiptp.ui.home.HomeScreen
 import com.alpefe.fujiptp.ui.home.backlog.BacklogScreen
 import com.alpefe.fujiptp.ui.home.backlog.CollectionScreen
 import com.alpefe.fujiptp.ui.home.discover.DiscoverCollectionScreen
+import com.alpefe.fujiptp.ui.home.discover.DiscoverRecipeDetailScreen
 import com.alpefe.fujiptp.ui.home.discover.DiscoverScreen
 import com.alpefe.fujiptp.ui.theme.Canvas
 import com.alpefe.fujiptp.ui.theme.Ink
@@ -59,50 +64,75 @@ fun FujiApp(viewModel: FujiViewModel = viewModel()) {
     val screen by viewModel.screen.collectAsStateWithLifecycle()
     val busy by viewModel.busy.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
+    var showSplash by remember { mutableStateOf(true) }
 
     LaunchedEffect(Unit) {
         viewModel.messages.receiveAsFlow().collectLatest { snackbar.showSnackbar(it) }
     }
 
-    when (val s = screen) {
-        is Screen.Editor -> {
-            BackHandler { viewModel.pop() }
-            EditorScreen(
-                viewModel = viewModel,
-                recipeId = s.recipeId,
-                fromSlot = s.fromSlot,
-                assignOnSave = s.assignOnSave,
-                collectionId = s.collectionId,
-                onBack = { viewModel.pop() },
-            )
-        }
-        is Screen.Collection -> {
-            BackHandler { viewModel.pop() }
-            CollectionScreen(
-                viewModel = viewModel,
-                collectionId = s.collectionId,
-                collectionName = s.name,
-                onBack = { viewModel.pop() },
-            )
-        }
-        is Screen.DiscoverCollection -> {
-            BackHandler { viewModel.pop() }
-            DiscoverCollectionScreen(
-                viewModel = viewModel,
-                collectionId = s.id,
-                collectionName = s.name,
-                onBack = { viewModel.pop() },
-            )
-        }
-        else -> {
-            BackHandler { /* root */ }
-            MainScaffold(
-                viewModel = viewModel,
-                current = screen,
-                busy = busy,
-                snackbar = snackbar,
-                onNavigate = { viewModel.push(it) },
-            )
+    if (showSplash) {
+        SplashScreen(onFinished = { showSplash = false })
+        return
+    }
+
+    // Global screen transition: slide + fade between destinations.
+    AnimatedContent(
+        targetState = screen,
+        transitionSpec = {
+            (slideInHorizontally(tween(260)) { it / 6 } + fadeIn(tween(220)))
+                .togetherWith(slideOutHorizontally(tween(220)) { -it / 8 } + fadeOut(tween(180)))
+        },
+        label = "screenTransition",
+    ) { target ->
+        when (val s = target) {
+            is Screen.Editor -> {
+                BackHandler { viewModel.pop() }
+                EditorScreen(
+                    viewModel = viewModel,
+                    recipeId = s.recipeId,
+                    fromSlot = s.fromSlot,
+                    assignOnSave = s.assignOnSave,
+                    collectionId = s.collectionId,
+                    onBack = { viewModel.pop() },
+                )
+            }
+            is Screen.Collection -> {
+                BackHandler { viewModel.pop() }
+                CollectionScreen(
+                    viewModel = viewModel,
+                    collectionId = s.collectionId,
+                    collectionName = s.name,
+                    onBack = { viewModel.pop() },
+                )
+            }
+            is Screen.DiscoverCollection -> {
+                BackHandler { viewModel.pop() }
+                DiscoverCollectionScreen(
+                    viewModel = viewModel,
+                    collectionId = s.id,
+                    collectionName = s.name,
+                    onBack = { viewModel.pop() },
+                )
+            }
+            is Screen.DiscoverRecipeDetail -> {
+                BackHandler { viewModel.pop() }
+                DiscoverRecipeDetailScreen(
+                    viewModel = viewModel,
+                    collectionId = s.collectionId,
+                    recipeId = s.recipeId,
+                    onBack = { viewModel.pop() },
+                )
+            }
+            else -> {
+                BackHandler { /* root */ }
+                MainScaffold(
+                    viewModel = viewModel,
+                    current = target,
+                    busy = busy,
+                    snackbar = snackbar,
+                    onNavigate = { viewModel.push(it) },
+                )
+            }
         }
     }
 }
