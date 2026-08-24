@@ -36,7 +36,11 @@ class CameraClient(private val bridge: UsbIo) {
         if (!json.optBoolean("ok", false)) {
             throw IllegalStateException(json.optString("error", "read failed"))
         }
-        val recipes = JSONArray(json.optString("recipes", "[]").ifEmpty { "[]" })
+        // {"ok":true,"profile":{"name":...,"recipes":[...]}} — serialized by
+        // fuji-ptp-core (serde feature), parsed here as plain JSON.
+        val profile = json.optJSONObject("profile")
+            ?: throw IllegalStateException("read failed: missing profile")
+        val recipes = profile.optJSONArray("recipes") ?: JSONArray()
         List(recipes.length()) { i -> RecipeModel.fromNativeJson(recipes.getJSONObject(i)) }
     }
 

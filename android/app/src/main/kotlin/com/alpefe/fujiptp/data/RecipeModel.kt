@@ -125,19 +125,23 @@ data class RecipeModel(
             monochromeWc == other.monochromeWc &&
             monochromeMg == other.monochromeMg
 
-    /** Serialize to the exact JSON shape the Rust bridge expects. */
+    /** Serialize to the exact JSON shape the Rust core (serde) expects. */
     fun toNativeJson(): String = JSONObject()
         .put("name", name)
-        .put("film_simulation", filmSimulation.wire)
-        .put("dynamic_range", dynamicRange.wire)
-        .put("grain_effect", grainEffect.wire)
-        .put("smooth_skin", smoothSkin.wire)
-        .put("color_chrome", colorChrome.wire)
-        .put("color_chrome_fx_blue", colorChromeFxBlue.wire)
-        .put("white_balance_mode", whiteBalanceMode.wire)
-        .put("white_balance_shift_r", whiteBalanceShiftR)
-        .put("white_balance_shift_b", whiteBalanceShiftB)
-        .put("white_balance_temperature", whiteBalanceTemperature)
+        .put("film_simulation", filmSimulation.name)
+        .put("dynamic_range", dynamicRange.name)
+        .put("grain_effect", grainEffect.name)
+        .put("smooth_skin", smoothSkin.name)
+        .put("color_chrome", colorChrome.name)
+        .put("color_chrome_fx_blue", colorChromeFxBlue.name)
+        .put(
+            "white_balance",
+            JSONObject()
+                .put("mode", whiteBalanceMode.name)
+                .put("shift_r", whiteBalanceShiftR)
+                .put("shift_b", whiteBalanceShiftB)
+                .put("color_temperature", whiteBalanceTemperature),
+        )
         .put("highlight", highlight)
         .put("shadow", shadow)
         .put("color", color)

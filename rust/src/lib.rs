@@ -1,11 +1,14 @@
 //! JNI bridge for the Android application.
 //!
-//! Responsibilities:
-//! - Keep `fuji-ptp-core` platform independent (no Android/JNI code in it).
-//! - Expose a small, high-level JNI API to Kotlin (JSON strings + one bridge
-//!   object), so Kotlin never re-implements PTP containers.
+//! This crate is a thin transport layer. It contains NO protocol logic and
+//! NO hand-written DTOs: the whole PTP/Fujifilm protocol and the JSON
+//! serialization of the recipe domain model live in `fuji-ptp-core` (feature
+//! `serde`). This crate only:
 //!
-//! Architecture:
+//! 1. Implements `fuji_ptp_core::transport::Transport` on top of a Kotlin
+//!    `UsbIo` object (bulk IN/OUT callbacks through JNI).
+//! 2. Exposes a small, high-level JNI facade to Kotlin that calls
+//!    `FujiPtp` and passes JSON strings across the boundary.
 //!
 //! ```text
 //! Kotlin UsbIoBridge (owns UsbDeviceConnection)
@@ -13,29 +16,18 @@
 //!         ▼
 //! AndroidTransport (this crate)  implements fuji_ptp_core::transport::Transport
 //!         ▼
-//! fuji_ptp_core::FujiPtp  (whole Fujifilm PTP protocol lives here)
+//! fuji-ptp-core::FujiPtp  (protocol + serde DTOs, feature "serde")
 //! ```
-//!
-//! The Kotlin `UsbIo` interface must offer:
-//! - `send(data: ByteArray): Int`  (bulk OUT, returns bytes written)
-//! - `receive(size: Int): ByteArray` (bulk IN, exactly up to `size` bytes)
-//!
-//! JSON is used as the DTO boundary so the JNI surface stays tiny and the
-//! application can evolve without touching the bridge.
 
 use std::ffi::c_void;
 use std::sync::{Mutex, OnceLock};
 
 use fuji_ptp_core::ptp::FujiPtp;
-use fuji_ptp_core::recipe::{
-    DynamicRange, EffectStrength, FilmSimulation, GrainEffect, Profile, Recipe, WhiteBalance,
-    WhiteBalanceMode,
-};
+use fuji_ptp_core::recipe::Profile;
 use fuji_ptp_core::transport::{Transport, TransportError};
 use jni::objects::{GlobalRef, JByteArray, JObject, JString, JValue, JValueOwned};
 use jni::sys::{JNI_VERSION_1_6, jint, jstring};
 use jni::{JNIEnv, JavaVM};
-use serde::{Deserialize, Serialize};
 
 // ---------------------------------------------------------------------------
 // Global state
@@ -138,253 +130,18 @@ impl Transport for AndroidTransport {
 }
 
 // ---------------------------------------------------------------------------
-// DTOs (JSON boundary)
-// ---------------------------------------------------------------------------
-
-/// Flat, serde-friendly representation of a Fujifilm recipe. Field names and
-/// enum string values are the contract with the Kotlin app.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RecipeDto {
-    pub name: String,
-    pub film_simulation: String,
-    pub dynamic_range: String,
-    pub grain_effect: String,
-    pub smooth_skin: String,
-    pub color_chrome: String,
-    pub color_chrome_fx_blue: String,
-    pub white_balance_mode: String,
-    pub white_balance_shift_r: i16,
-    pub white_balance_shift_b: i16,
-    pub white_balance_temperature: Option<u16>,
-    pub highlight: f32,
-    pub shadow: f32,
-    pub color: f32,
-    pub sharpness: f32,
-    pub clarity: f32,
-    pub noise_reduction: i8,
-    pub exposure: f32,
-    pub dynamic_range_priority: i32,
-    pub monochrome_wc: f32,
-    pub monochrome_mg: f32,
-}
-
-fn film_from(s: &str) -> Option<FilmSimulation> {
-    Some(match s {
-        "Provia" => FilmSimulation::Provia,
-        "Velvia" => FilmSimulation::Velvia,
-        "Astia" => FilmSimulation::Astia,
-        "ProNegHigh" => FilmSimulation::ProNegHigh,
-        "ProNegStandard" => FilmSimulation::ProNegStandard,
-        "Monochrome" => FilmSimulation::Monochrome,
-        "MonochromeYellow" => FilmSimulation::MonochromeYellow,
-        "MonochromeRed" => FilmSimulation::MonochromeRed,
-        "MonochromeGreen" => FilmSimulation::MonochromeGreen,
-        "Sepia" => FilmSimulation::Sepia,
-        "ClassicChrome" => FilmSimulation::ClassicChrome,
-        "Acros" => FilmSimulation::Acros,
-        "AcrosYellow" => FilmSimulation::AcrosYellow,
-        "AcrosRed" => FilmSimulation::AcrosRed,
-        "AcrosGreen" => FilmSimulation::AcrosGreen,
-        "Eterna" => FilmSimulation::Eterna,
-        "ClassicNegative" => FilmSimulation::ClassicNegative,
-        "EternaBleachBypass" => FilmSimulation::EternaBleachBypass,
-        "NostalgicNegative" => FilmSimulation::NostalgicNegative,
-        "RealaAce" => FilmSimulation::RealaAce,
-        _ => return None,
-    })
-}
-
-fn film_name(f: &FilmSimulation) -> &'static str {
-    match f {
-        FilmSimulation::Provia => "Provia",
-        FilmSimulation::Velvia => "Velvia",
-        FilmSimulation::Astia => "Astia",
-        FilmSimulation::ProNegHigh => "ProNegHigh",
-        FilmSimulation::ProNegStandard => "ProNegStandard",
-        FilmSimulation::Monochrome => "Monochrome",
-        FilmSimulation::MonochromeYellow => "MonochromeYellow",
-        FilmSimulation::MonochromeRed => "MonochromeRed",
-        FilmSimulation::MonochromeGreen => "MonochromeGreen",
-        FilmSimulation::Sepia => "Sepia",
-        FilmSimulation::ClassicChrome => "ClassicChrome",
-        FilmSimulation::Acros => "Acros",
-        FilmSimulation::AcrosYellow => "AcrosYellow",
-        FilmSimulation::AcrosRed => "AcrosRed",
-        FilmSimulation::AcrosGreen => "AcrosGreen",
-        FilmSimulation::Eterna => "Eterna",
-        FilmSimulation::ClassicNegative => "ClassicNegative",
-        FilmSimulation::EternaBleachBypass => "EternaBleachBypass",
-        FilmSimulation::NostalgicNegative => "NostalgicNegative",
-        FilmSimulation::RealaAce => "RealaAce",
-    }
-}
-
-fn dr_from(s: &str) -> Option<DynamicRange> {
-    match s {
-        "Dr100" => Some(DynamicRange::Dr100),
-        "Dr200" => Some(DynamicRange::Dr200),
-        "Dr400" => Some(DynamicRange::Dr400),
-        _ => None,
-    }
-}
-
-fn dr_name(d: &DynamicRange) -> &'static str {
-    match d {
-        DynamicRange::Dr100 => "Dr100",
-        DynamicRange::Dr200 => "Dr200",
-        DynamicRange::Dr400 => "Dr400",
-    }
-}
-
-fn grain_from(s: &str) -> Option<GrainEffect> {
-    Some(match s {
-        "Off" => GrainEffect::Off,
-        "WeakSmall" => GrainEffect::WeakSmall,
-        "StrongSmall" => GrainEffect::StrongSmall,
-        "WeakLarge" => GrainEffect::WeakLarge,
-        "StrongLarge" => GrainEffect::StrongLarge,
-        _ => return None,
-    })
-}
-
-fn grain_name(g: &GrainEffect) -> &'static str {
-    match g {
-        GrainEffect::Off => "Off",
-        GrainEffect::WeakSmall => "WeakSmall",
-        GrainEffect::StrongSmall => "StrongSmall",
-        GrainEffect::WeakLarge => "WeakLarge",
-        GrainEffect::StrongLarge => "StrongLarge",
-    }
-}
-
-fn strength_from(s: &str) -> Option<EffectStrength> {
-    match s {
-        "Off" => Some(EffectStrength::Off),
-        "Weak" => Some(EffectStrength::Weak),
-        "Strong" => Some(EffectStrength::Strong),
-        _ => None,
-    }
-}
-
-fn strength_name(e: &EffectStrength) -> &'static str {
-    match e {
-        EffectStrength::Off => "Off",
-        EffectStrength::Weak => "Weak",
-        EffectStrength::Strong => "Strong",
-    }
-}
-
-fn wb_from(s: &str) -> Option<WhiteBalanceMode> {
-    Some(match s {
-        "Auto" => WhiteBalanceMode::Auto,
-        "Daylight" => WhiteBalanceMode::Daylight,
-        "Shade" => WhiteBalanceMode::Shade,
-        "Fluorescent1" => WhiteBalanceMode::Fluorescent1,
-        "Fluorescent2" => WhiteBalanceMode::Fluorescent2,
-        "Fluorescent3" => WhiteBalanceMode::Fluorescent3,
-        "Incandescent" => WhiteBalanceMode::Incandescent,
-        "Underwater" => WhiteBalanceMode::Underwater,
-        "ColorTemperature" => WhiteBalanceMode::ColorTemperature,
-        "AmbiencePriority" => WhiteBalanceMode::AmbiencePriority,
-        _ => return None,
-    })
-}
-
-fn wb_name(w: &WhiteBalanceMode) -> &'static str {
-    match w {
-        WhiteBalanceMode::Auto => "Auto",
-        WhiteBalanceMode::Daylight => "Daylight",
-        WhiteBalanceMode::Shade => "Shade",
-        WhiteBalanceMode::Fluorescent1 => "Fluorescent1",
-        WhiteBalanceMode::Fluorescent2 => "Fluorescent2",
-        WhiteBalanceMode::Fluorescent3 => "Fluorescent3",
-        WhiteBalanceMode::Incandescent => "Incandescent",
-        WhiteBalanceMode::Underwater => "Underwater",
-        WhiteBalanceMode::ColorTemperature => "ColorTemperature",
-        WhiteBalanceMode::AmbiencePriority => "AmbiencePriority",
-    }
-}
-
-impl RecipeDto {
-    pub fn from_recipe(r: &Recipe) -> Self {
-        Self {
-            name: r.name.clone(),
-            film_simulation: film_name(&r.film_simulation).to_string(),
-            dynamic_range: dr_name(&r.dynamic_range).to_string(),
-            grain_effect: grain_name(&r.grain_effect).to_string(),
-            smooth_skin: strength_name(&r.smooth_skin).to_string(),
-            color_chrome: strength_name(&r.color_chrome).to_string(),
-            color_chrome_fx_blue: strength_name(&r.color_chrome_fx_blue).to_string(),
-            white_balance_mode: wb_name(&r.white_balance.mode).to_string(),
-            white_balance_shift_r: r.white_balance.shift_r,
-            white_balance_shift_b: r.white_balance.shift_b,
-            white_balance_temperature: r.white_balance.color_temperature,
-            highlight: r.highlight,
-            shadow: r.shadow,
-            color: r.color,
-            sharpness: r.sharpness,
-            clarity: r.clarity,
-            noise_reduction: r.noise_reduction,
-            exposure: r.exposure,
-            dynamic_range_priority: r.dynamic_range_priority,
-            monochrome_wc: r.monochrome_wc,
-            monochrome_mg: r.monochrome_mg,
-        }
-    }
-
-    pub fn to_recipe(&self) -> Result<Recipe, String> {
-        let film_simulation = film_from(&self.film_simulation)
-            .ok_or_else(|| format!("unknown film simulation '{}'", self.film_simulation))?;
-        let dynamic_range = dr_from(&self.dynamic_range)
-            .ok_or_else(|| format!("unknown dynamic range '{}'", self.dynamic_range))?;
-        let grain_effect = grain_from(&self.grain_effect)
-            .ok_or_else(|| format!("unknown grain effect '{}'", self.grain_effect))?;
-        let smooth_skin = strength_from(&self.smooth_skin)
-            .ok_or_else(|| format!("unknown smooth skin '{}'", self.smooth_skin))?;
-        let color_chrome = strength_from(&self.color_chrome)
-            .ok_or_else(|| format!("unknown color chrome '{}'", self.color_chrome))?;
-        let color_chrome_fx_blue = strength_from(&self.color_chrome_fx_blue)
-            .ok_or_else(|| format!("unknown fx blue '{}'", self.color_chrome_fx_blue))?;
-        let white_balance_mode = wb_from(&self.white_balance_mode)
-            .ok_or_else(|| format!("unknown white balance '{}'", self.white_balance_mode))?;
-
-        let mut recipe = Recipe::new(self.name.clone());
-        recipe.film_simulation = film_simulation;
-        recipe.dynamic_range = dynamic_range;
-        recipe.grain_effect = grain_effect;
-        recipe.smooth_skin = smooth_skin;
-        recipe.color_chrome = color_chrome;
-        recipe.color_chrome_fx_blue = color_chrome_fx_blue;
-        recipe.white_balance = WhiteBalance {
-            mode: white_balance_mode,
-            shift_r: self.white_balance_shift_r,
-            shift_b: self.white_balance_shift_b,
-            color_temperature: self.white_balance_temperature,
-        };
-        recipe.highlight = self.highlight;
-        recipe.shadow = self.shadow;
-        recipe.color = self.color;
-        recipe.sharpness = self.sharpness;
-        recipe.clarity = self.clarity;
-        recipe.noise_reduction = self.noise_reduction;
-        recipe.exposure = self.exposure;
-        recipe.dynamic_range_priority = self.dynamic_range_priority;
-        recipe.monochrome_wc = self.monochrome_wc;
-        recipe.monochrome_mg = self.monochrome_mg;
-        Ok(recipe)
-    }
-}
-
-// ---------------------------------------------------------------------------
 // JNI helpers
 // ---------------------------------------------------------------------------
 
 fn ok_json() -> String {
-    serde_json::json!({ "ok": true }).to_string()
+    "{\"ok\":true}".to_string()
 }
 
 fn err_json(message: impl AsRef<str>) -> String {
-    serde_json::json!({ "ok": false, "error": message.as_ref() }).to_string()
+    format!(
+        "{{\"ok\":false,\"error\":{}}}",
+        serde_json::to_string(message.as_ref()).unwrap_or_else(|_| "\"unknown\"".into())
+    )
 }
 
 /// Clear any pending Java exception left by a transport callback, so the
@@ -401,7 +158,7 @@ unsafe fn json_param<'local>(env: &mut JNIEnv<'local>, raw: jstring) -> Result<S
 }
 
 // ---------------------------------------------------------------------------
-// Controller operations
+// Controller operations (all protocol work happens inside fuji-ptp-core)
 // ---------------------------------------------------------------------------
 
 fn connect(bridge: GlobalRef) -> Result<(), String> {
@@ -434,20 +191,20 @@ fn close_session() -> Result<(), String> {
         .map_err(|e| format!("close session failed: {e:?}"))
 }
 
-fn read_recipes() -> Result<Vec<RecipeDto>, String> {
+fn read_recipes_json() -> Result<String, String> {
     let mut guard = lock_controller();
     let controller = guard.as_mut().ok_or("not connected")?;
-    let profile = controller
+    let profile: Profile = controller
         .fuji
         .read_recipes()
         .map_err(|e| format!("read recipes failed: {e:?}"))?;
-    Ok(profile.recipes.iter().map(RecipeDto::from_recipe).collect())
+    serde_json::to_string(&profile).map_err(|e| format!("serialize failed: {e}"))
 }
 
-fn write_recipe(slot: u8, recipe: &RecipeDto) -> Result<(), String> {
+fn write_recipe(slot: u8, recipe_json: &str) -> Result<(), String> {
+    let recipe = serde_json::from_str(recipe_json).map_err(|e| format!("bad recipe JSON: {e}"))?;
     let mut guard = lock_controller();
     let controller = guard.as_mut().ok_or("not connected")?;
-    let recipe = recipe.to_recipe()?;
     controller
         .fuji
         .write_recipe(slot, &recipe)
@@ -455,13 +212,16 @@ fn write_recipe(slot: u8, recipe: &RecipeDto) -> Result<(), String> {
 }
 
 /// Writes only the names of the 7 slots, preserving every other camera value.
-fn write_recipe_names(names: Vec<String>) -> Result<(), String> {
+fn write_recipe_names(names_json: &str) -> Result<(), String> {
+    let names: Vec<String> =
+        serde_json::from_str(names_json).map_err(|e| format!("bad names JSON: {e}"))?;
     if names.len() != 7 {
         return Err(format!("expected 7 names, got {}", names.len()));
     }
     let mut guard = lock_controller();
     let controller = guard.as_mut().ok_or("not connected")?;
-    let recipes: [Recipe; 7] = std::array::from_fn(|i| Recipe::new(names[i].clone()));
+    let recipes: [fuji_ptp_core::recipe::Recipe; 7] =
+        std::array::from_fn(|i| fuji_ptp_core::recipe::Recipe::new(names[i].clone()));
     let profile = Profile::new("Names only".into(), recipes);
     controller
         .fuji
@@ -542,8 +302,8 @@ pub extern "system" fn Java_com_alpefe_fujiptp_FujiNative_nativeReadRecipes(
     _this: JObject<'_>,
 ) -> jstring {
     clear_pending_exception(&env);
-    let json = match read_recipes() {
-        Ok(recipes) => serde_json::json!({ "ok": true, "recipes": recipes }).to_string(),
+    let json = match read_recipes_json() {
+        Ok(profile_json) => format!("{{\"ok\":true,\"profile\":{profile_json}}}"),
         Err(e) => err_json(e),
     };
     env.new_string(json).expect("JNI string").into_raw()
@@ -559,8 +319,7 @@ pub extern "system" fn Java_com_alpefe_fujiptp_FujiNative_nativeWriteRecipe(
 ) -> jstring {
     clear_pending_exception(&env);
     let result = unsafe { json_param(&mut env, recipe_json) }
-        .and_then(|json| serde_json::from_str::<RecipeDto>(&json).map_err(|e| e.to_string()))
-        .and_then(|recipe| write_recipe(slot.max(1) as u8, &recipe));
+        .and_then(|json| write_recipe(slot.max(1) as u8, &json));
     let json = match result {
         Ok(()) => ok_json(),
         Err(e) => err_json(e),
@@ -568,7 +327,7 @@ pub extern "system" fn Java_com_alpefe_fujiptp_FujiNative_nativeWriteRecipe(
     env.new_string(json).expect("JNI string").into_raw()
 }
 
-/// nativeWriteRecipeNames(namesJson: String): String  -> {"names":["a",...,"g"]}
+/// nativeWriteRecipeNames(namesJson: String): String  -> JSON array of 7 names
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_com_alpefe_fujiptp_FujiNative_nativeWriteRecipeNames(
     mut env: JNIEnv<'_>,
@@ -576,10 +335,8 @@ pub extern "system" fn Java_com_alpefe_fujiptp_FujiNative_nativeWriteRecipeNames
     names_json: jstring,
 ) -> jstring {
     clear_pending_exception(&env);
-    let result = unsafe { json_param(&mut env, names_json) }.and_then(|json| {
-        let names: Vec<String> = serde_json::from_str(&json).map_err(|e| e.to_string())?;
-        write_recipe_names(names)
-    });
+    let result =
+        unsafe { json_param(&mut env, names_json) }.and_then(|json| write_recipe_names(&json));
     let json = match result {
         Ok(()) => ok_json(),
         Err(e) => err_json(e),
@@ -605,8 +362,8 @@ pub extern "system" fn JNI_OnLoad(vm: JavaVM, _reserved: *mut c_void) -> jint {
 }
 
 // ---------------------------------------------------------------------------
-// Host-side tests: validate the DTO mapping and JSON contract against a
-// scripted fake camera, without any JVM involved.
+// Host-side tests: validate the JSON contract against a scripted fake
+// camera. No JVM involved: the transport is exercised directly.
 // ---------------------------------------------------------------------------
 
 #[cfg(test)]
@@ -632,19 +389,15 @@ mod tests {
         p
     }
 
-    /// Scripts a fake camera that answers open_session + read_recipes() for a
-    /// single-slot recipe set (all seven slots receive the same recipe).
-    /// Transaction ids advance sequentially, exactly like the real core.
-    fn queue_read_script(transport: &mut MockTransport, recipe: &RecipeDto) {
+    /// Scripts a fake camera answering open_session + read_recipes() with one
+    /// recipe replicated over the seven slots.
+    fn queue_read_script(transport: &mut MockTransport, name: &str, film_wire: u16) {
         let mut tx = 1u32;
-        // open_session: command then response.
-        transport.queue_received(response_ok(tx));
+        transport.queue_received(response_ok(tx)); // open_session
         for _ in 0..7u8 {
-            // select_slot: set_device_prop_value_wait -> command, data, response.
             tx += 1;
-            transport.queue_received(response_ok(tx));
-            // name property (PROP_SLOT_NAME 0xD18D)
-            let name_units: Vec<u16> = recipe.name.encode_utf16().collect();
+            transport.queue_received(response_ok(tx)); // select_slot (SET, wait)
+            let name_units: Vec<u16> = name.encode_utf16().collect();
             let mut name_bytes = vec![(name_units.len() + 1) as u8];
             for u in name_units {
                 name_bytes.extend_from_slice(&u.to_le_bytes());
@@ -653,30 +406,29 @@ mod tests {
             tx += 1;
             transport.queue_received(data_container(0x1015, tx, &name_bytes));
             transport.queue_received(response_ok(tx));
-            // 19 property values (PROPS list order).
+            // 19 property values (PROPS order in src/ptp/fuji.rs).
+            // Wire values: highlight=+1.0, shadow=-1.0, color=+2.0,
+            // sharpness=+1.0, NR=0, clarity=+4.0.
             let props: Vec<u16> = vec![
-                // dynamic range -> 100, priority 0, film, mono wc, mono mg,
-                // grain, color chrome, fx blue, smooth, wb, wb_r, wb_b, temp,
-                // highlight, shadow, color, sharpness, nr, clarity
                 100,
                 0,
-                11, // Classic Chrome
+                film_wire,
                 0,
                 0,
-                1, // grain off
                 1,
                 1,
                 1,
-                2, // wb auto
+                1,
+                2,
                 0,
                 0,
                 0,
-                (recipe.highlight * 10.0) as i16 as u16,
-                (recipe.shadow * 10.0) as i16 as u16,
-                (recipe.color * 10.0) as i16 as u16,
-                (recipe.sharpness * 10.0) as i16 as u16,
-                8192, // NR 0
-                (recipe.clarity * 10.0) as i16 as u16,
+                10,
+                (-10i16) as u16,
+                20,
+                10,
+                8192,
+                40,
             ];
             for value in props {
                 tx += 1;
@@ -687,70 +439,9 @@ mod tests {
     }
 
     #[test]
-    fn dto_roundtrip_preserves_fields() {
-        let dto = RecipeDto {
-            name: "Portra 400".into(),
-            film_simulation: "ClassicNegative".into(),
-            dynamic_range: "Dr200".into(),
-            grain_effect: "StrongSmall".into(),
-            smooth_skin: "Off".into(),
-            color_chrome: "Weak".into(),
-            color_chrome_fx_blue: "Strong".into(),
-            white_balance_mode: "ColorTemperature".into(),
-            white_balance_shift_r: 3,
-            white_balance_shift_b: -2,
-            white_balance_temperature: Some(5600),
-            highlight: 1.5,
-            shadow: -1.0,
-            color: 2.0,
-            sharpness: 0.5,
-            clarity: -1.0,
-            noise_reduction: -2,
-            exposure: 0.0,
-            dynamic_range_priority: 0,
-            monochrome_wc: 0.0,
-            monochrome_mg: 0.0,
-        };
-        let recipe = dto.to_recipe().expect("valid recipe");
-        let back = RecipeDto::from_recipe(&recipe);
-        assert_eq!(back.name, "Portra 400");
-        assert_eq!(back.film_simulation, "ClassicNegative");
-        assert_eq!(back.dynamic_range, "Dr200");
-        assert_eq!(back.grain_effect, "StrongSmall");
-        assert_eq!(back.color_chrome, "Weak");
-        assert_eq!(back.white_balance_mode, "ColorTemperature");
-        assert_eq!(back.white_balance_temperature, Some(5600));
-        assert_eq!(back.highlight, 1.5);
-        assert_eq!(back.noise_reduction, -2);
-    }
-
-    #[test]
-    fn read_recipes_through_fake_camera_returns_seven_dtos() {
+    fn read_recipes_through_fake_camera_produces_core_json() {
         let mut transport = MockTransport::new();
-        let dto = RecipeDto {
-            name: "CINEMA GOLD".into(),
-            film_simulation: "ClassicChrome".into(),
-            dynamic_range: "Dr100".into(),
-            grain_effect: "Off".into(),
-            smooth_skin: "Off".into(),
-            color_chrome: "Off".into(),
-            color_chrome_fx_blue: "Off".into(),
-            white_balance_mode: "Auto".into(),
-            white_balance_shift_r: 0,
-            white_balance_shift_b: 0,
-            white_balance_temperature: None,
-            highlight: 1.0,
-            shadow: -1.0,
-            color: 2.0,
-            sharpness: 1.0,
-            clarity: 1.0,
-            noise_reduction: 0,
-            exposure: 0.0,
-            dynamic_range_priority: 0,
-            monochrome_wc: 0.0,
-            monochrome_mg: 0.0,
-        };
-        queue_read_script(&mut transport, &dto);
+        queue_read_script(&mut transport, "CINEMA GOLD", 11 /* Classic Chrome */);
 
         let mut fuji = FujiPtp::new(transport);
         fuji.open_session(1).expect("open session");
@@ -762,20 +453,48 @@ mod tests {
             assert_eq!(recipe.shadow, -1.0);
             assert_eq!(recipe.color, 2.0);
             assert_eq!(recipe.sharpness, 1.0);
-            assert_eq!(recipe.clarity, 1.0);
+            assert_eq!(recipe.clarity, 4.0);
         }
-        // The JSON contract itself.
-        let dtos: Vec<RecipeDto> = profile.recipes.iter().map(RecipeDto::from_recipe).collect();
-        let json = serde_json::json!({ "ok": true, "recipes": dtos }).to_string();
+        // The JSON contract itself: core serde with snake_case names.
+        let json = serde_json::to_string(&profile).unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
-        assert_eq!(parsed["ok"], true);
         assert_eq!(parsed["recipes"].as_array().unwrap().len(), 7);
         assert_eq!(parsed["recipes"][0]["name"], "CINEMA GOLD");
+        assert_eq!(parsed["recipes"][0]["film_simulation"], "ClassicChrome");
+        assert_eq!(parsed["recipes"][0]["highlight"], 1.0);
+        assert_eq!(parsed["recipes"][0]["white_balance"]["shift_r"], 0);
+        // And the exact shape the Kotlin CameraClient expects:
+        let wrapped = format!("{{\"ok\":true,\"profile\":{json}}}");
+        let wrapped_parsed: serde_json::Value = serde_json::from_str(&wrapped).unwrap();
+        assert_eq!(wrapped_parsed["ok"], true);
+        assert_eq!(
+            wrapped_parsed["profile"]["recipes"][0]["grain_effect"],
+            "Off"
+        );
     }
 
     #[test]
-    fn write_recipe_names_validates_arity() {
-        let result = write_recipe_names(vec!["a".into(), "b".into()]);
-        assert!(result.is_err());
+    fn recipe_json_roundtrips_through_serde() {
+        let recipe: fuji_ptp_core::recipe::Recipe = serde_json::from_str(
+            r#"{"name":"Portra400","film_simulation":"Velvia","dynamic_range":"Dr200",
+               "grain_effect":"StrongSmall","smooth_skin":"Off","color_chrome":"Weak",
+               "color_chrome_fx_blue":"Strong","white_balance":{"mode":"ColorTemperature",
+               "shift_r":3,"shift_b":-2,"color_temperature":5600},"highlight":1.5,"shadow":-1.0,
+               "color":2.0,"sharpness":0.5,"noise_reduction":-2,"clarity":-1.0,"exposure":0.0,
+               "dynamic_range_priority":0,"monochrome_wc":0.0,"monochrome_mg":0.0}"#,
+        )
+        .expect("parse recipe JSON");
+        assert_eq!(recipe.name, "Portra400");
+        assert_eq!(
+            recipe.film_simulation,
+            fuji_ptp_core::recipe::FilmSimulation::Velvia
+        );
+        assert_eq!(
+            recipe.grain_effect,
+            fuji_ptp_core::recipe::GrainEffect::StrongSmall
+        );
+        assert_eq!(recipe.white_balance.color_temperature, Some(5600));
+        assert_eq!(recipe.highlight, 1.5);
+        assert_eq!(recipe.noise_reduction, -2);
     }
 }
