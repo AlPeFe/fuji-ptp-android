@@ -24,7 +24,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /** One of the 7 camera slots with its currently assigned recipe. */
-data class SlotUi(val index: Int, val recipe: RecipeModel?)
+data class SlotUi(
+    val index: Int,
+    val recipe: RecipeModel?,
+    /** True when the recipe was read from the camera and not yet saved. */
+    val fromCamera: Boolean = false,
+)
 
 /** A collection shown in the library. */
 data class CollectionUi(
@@ -39,6 +44,7 @@ data class CollectionUi(
 sealed interface Screen {
     data object Active : Screen
     data object Backlog : Screen
+    data object Discover : Screen
     data class Editor(val recipeId: Long?, val fromSlot: Int?, val assignOnSave: Int? = null) : Screen
 }
 
@@ -52,12 +58,21 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
         .map { list -> list.map { it.toModel() } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val slots: StateFlow<List<SlotUi>> = repo.slots
-        .map { rows ->
-            val byIndex = rows.associateBy { it.slotIndex }
-            (1..7).map { i -> SlotUi(i, byIndex[i]?.recipe?.toModel()) }
+    /** Recipes read from the camera, held in memory (not in the library). */
+    private val cameraRecipes = MutableStateFlow<List<RecipeModel>?>(null)
+
+    val slots: StateFlow<List<SlotUi>> =
+        combine(repo.slots, cameraRecipes) { rows, cam ->
+            if (cam != null) {
+                // Camera is showing its recipes: reflect them on the slots
+                // without persisting anything.
+                cam.mapIndexed { index, recipe -> SlotUi(index + 1, recipe, fromCamera = true) }
+            } else {
+                val byIndex = rows.associateBy { it.slotIndex }
+                (1..7).map { i -> SlotUi(i, byIndex[i]?.recipe?.toModel()) }
+            }
         }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), (1..7).map { SlotUi(it, null) })
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), (1..7).map { SlotUi(it, null) })
 
     val collections: StateFlow<List<CollectionUi>> = repo.collections
         .map { list -> list.map { CollectionUi(it.id, it.name, it.colorHex, it.isDefault, it.count) } }
@@ -232,10 +247,31 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
             withBusy {
                 try {
                     val recipes = withContext(Dispatchers.IO) { camera.readRecipes() }.getOrThrow()
-                    withContext(Dispatchers.IO) { repo.importFromCamera(recipes) }
-                    notifyUser("C1–C7 importados de la cámara")
+                    // Kept in memory only: nothing is written to the library
+                    // until the user explicitly saves a recipe.
+                    cameraRecipes.value = recipes
+                    notifyUser("C1–C7 leídos de la cámara")
                 } catch (e: Exception) {
                     notifyUser("Error leyendo recipes: ${e.message ?: "desconocido"}")
+                }
+            }
+        }
+    }
+
+    /** Saves a camera recipe into the library and remembers the slot. */
+    fun saveCameraRecipe(slot: Int, recipe: RecipeModel) {
+        viewModelScope.launch {
+            withBusy {
+                try {
+                    val id = withContext(Dispatchers.IO) { repo.saveSlotRecipe(recipe, slot) }
+                    // Update the in-memory camera recipe with its new id so
+                    // the slot stops showing the "save" affordance.
+                    cameraRecipes.value = cameraRecipes.value?.mapIndexed { i, r ->
+                        if (i == slot - 1) r.copy(id = id) else r
+                    }
+                    notifyUser("Guardada en la biblioteca (C$slot)")
+                } catch (e: Exception) {
+                    notifyUser("Error al guardar: ${e.message ?: "desconocido"}")
                 }
             }
         }

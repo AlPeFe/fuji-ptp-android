@@ -27,6 +27,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.MoreVert
@@ -92,13 +93,13 @@ fun HomeScreen(viewModel: FujiViewModel) {
     var sendRecipe by remember { mutableStateOf<RecipeModel?>(null) }
 
     LazyVerticalGrid(
-        columns = GridCells.Fixed(2),
+        columns = GridCells.Fixed(1),
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 24.dp, bottom = 96.dp),
         horizontalArrangement = Arrangement.spacedBy(14.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        item(span = { GridItemSpan(2) }) {
+        item {
             Column {
                 Text(
                     "Hola 👋",
@@ -113,7 +114,7 @@ fun HomeScreen(viewModel: FujiViewModel) {
                 )
             }
         }
-        item(span = { GridItemSpan(2) }) {
+        item {
             CameraCard(
                 connected = connected,
                 devicePresent = devicePresent,
@@ -124,7 +125,7 @@ fun HomeScreen(viewModel: FujiViewModel) {
                 onRead = { viewModel.readFromCamera() },
             )
         }
-        item(span = { GridItemSpan(2) }) {
+        item {
             Column {
                 Text(
                     "Recetas activas",
@@ -145,6 +146,7 @@ fun HomeScreen(viewModel: FujiViewModel) {
                 connected = connected,
                 onOpen = { viewModel.push(Screen.Editor(slot.recipe?.id, slot.index)) },
                 onSend = { recipe -> viewModel.sendToSlot(slot.index, recipe) },
+                onSaveCamera = { recipe -> viewModel.saveCameraRecipe(slot.index, recipe) },
                 onAssign = { assignTarget = slot.index },
                 onClear = { viewModel.clearSlot(slot.index) },
             )
@@ -315,6 +317,7 @@ private fun SlotCard(
     connected: Boolean,
     onOpen: () -> Unit,
     onSend: (RecipeModel) -> Unit,
+    onSaveCamera: (RecipeModel) -> Unit,
     onAssign: () -> Unit,
     onClear: () -> Unit,
 ) {
@@ -339,47 +342,64 @@ private fun SlotCard(
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
-        Box(
+        Row(
             Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(horizontal = 18.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column(Modifier.padding(end = 10.dp)) {
+            Box(
+                Modifier
+                    .size(46.dp)
+                    .clip(CircleShape)
+                    .background(if (recipe != null) tint else Surface.copy(alpha = 0.8f)),
+                contentAlignment = Alignment.Center,
+            ) {
                 Text(
                     text = "C${slot.index}",
-                    style = MaterialTheme.typography.labelMedium,
+                    style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold,
                     color = if (recipe != null) MaterialTheme.colorScheme.primary else InkSoft,
                 )
-                Spacer(Modifier.height(10.dp))
+            }
+            Spacer(Modifier.width(14.dp))
+            Column(Modifier.weight(1f)) {
                 if (recipe != null) {
                     Text(
                         text = recipe.name.ifBlank { "Sin nombre" },
                         style = MaterialTheme.typography.titleMedium,
-                        maxLines = 2,
+                        maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    Spacer(Modifier.height(10.dp))
-                    FilmSimulationChip(recipe.filmSimulation)
-                } else {
-                    Box(
-                        Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(Surface.copy(alpha = 0.8f)),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text("+", color = InkSoft, style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.height(6.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        FilmSimulationChip(recipe.filmSimulation)
+                        if (slot.fromCamera) {
+                            Spacer(Modifier.width(8.dp))
+                            androidx.compose.material3.SuggestionChip(
+                                onClick = { recipe?.let(onSaveCamera) },
+                                label = {
+                                    Text(
+                                        "Guardar en biblioteca",
+                                        style = MaterialTheme.typography.labelSmall,
+                                    )
+                                },
+                                colors = androidx.compose.material3.SuggestionChipDefaults.suggestionChipColors(
+                                    containerColor = Peach.copy(alpha = 0.55f),
+                                    labelColor = Ink,
+                                ),
+                            )
+                        }
                     }
-                    Spacer(Modifier.height(8.dp))
+                } else {
                     Text(
                         "Vacío · toca para crear",
-                        style = MaterialTheme.typography.bodySmall,
+                        style = MaterialTheme.typography.bodyMedium,
                         color = InkSoft,
                     )
                 }
             }
-            Box(Modifier.align(Alignment.TopEnd)) {
+            Box {
                 IconButton(onClick = { menuOpen = true }) {
                     Icon(
                         Icons.Filled.MoreVert,
@@ -396,6 +416,16 @@ private fun SlotCard(
                             onClick = {
                                 menuOpen = false
                                 recipe?.let(onSend)
+                            },
+                        )
+                    }
+                    if (slot.fromCamera && recipe != null) {
+                        DropdownMenuItem(
+                            text = { Text("Guardar en biblioteca") },
+                            leadingIcon = { Icon(Icons.Filled.ContentCopy, null) },
+                            onClick = {
+                                menuOpen = false
+                                onSaveCamera(recipe)
                             },
                         )
                     }

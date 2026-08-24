@@ -56,28 +56,27 @@ class RecipeRepository(private val dao: RecipeDao) {
     }
 
     /**
-     * Imports the 7 camera recipes into the backlog (and the default
-     * collection), de-duplicating against existing recipes by value equality.
+     * Applies the 7 recipes read from the camera to the slot assignments
+     * WITHOUT persisting them to the library. The caller keeps the camera
+     * recipes in memory and shows them on the slots; only an explicit
+     * "save" action stores a recipe into the library (and the default
+     * collection).
      */
-    suspend fun importFromCamera(recipes: List<RecipeModel>): Map<Int, Long> {
+    suspend fun applyCameraRecipes(recipes: List<RecipeModel>) {
         require(recipes.size == 7) { "camera must return 7 recipes" }
-        val existing = dao.getAll().map { it.toModel() }
-        val defaultCollectionId = dao.getDefaultCollectionId()
-        val assignments = mutableMapOf<Int, Long>()
-        for ((index, camera) in recipes.withIndex()) {
-            val slot = index + 1
-            val match = existing.firstOrNull { it.sameValuesAs(camera) }
-            val id = if (match != null) {
-                dao.upsert(RecipeEntity.fromModel(match, System.currentTimeMillis()))
-                match.id
-            } else {
-                dao.upsert(RecipeEntity.fromModel(camera, System.currentTimeMillis()))
-            }
-            defaultCollectionId?.let { dao.addRecipeToCollection(id, it) }
-            assignments[slot] = id
-            dao.upsertSlot(SlotEntity(slot, id, System.currentTimeMillis()))
-        }
-        return assignments
+        // Slots are left untouched here: the UI shows the in-memory camera
+        // recipes. Persisting happens only on explicit save.
+    }
+
+    /**
+     * Explicitly saves a camera recipe into the library (default collection)
+     * and remembers the slot assignment.
+     */
+    suspend fun saveSlotRecipe(recipe: RecipeModel, slot: Int): Long {
+        val id = dao.upsert(RecipeEntity.fromModel(recipe, System.currentTimeMillis()))
+        dao.getDefaultCollectionId()?.let { dao.addRecipeToCollection(id, it) }
+        dao.upsertSlot(SlotEntity(slot, id, System.currentTimeMillis()))
+        return id
     }
 
     // --- collections ----------------------------------------------------------

@@ -2,7 +2,7 @@ package com.alpefe.fujiptp.ui.theme
 
 import android.app.Activity
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.lightColorScheme
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
@@ -10,15 +10,15 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-// Light, warm, pastel design. The app is intentionally light-only:
-// pastel minimalism reads best on warm white.
-private val LightColors = lightColorScheme(
+// Dark, warm, pastel design. The app renders in dark mode with muted pastel
+// accents over a warm espresso background.
+private val DarkColors = darkColorScheme(
     primary = PeachDeep,
-    onPrimary = Color.White,
+    onPrimary = Color(0xFF3A1D0F),
     primaryContainer = Peach,
     onPrimaryContainer = Ink,
     secondary = LavenderDeep,
-    onSecondary = Color.White,
+    onSecondary = Color(0xFF241B3D),
     secondaryContainer = Lavender,
     onSecondaryContainer = Ink,
     tertiary = SoftBlueDeep,
@@ -33,7 +33,7 @@ private val LightColors = lightColorScheme(
     outline = Hairline,
     outlineVariant = Hairline,
     error = Danger,
-    onError = Color.White,
+    onError = Color(0xFF3A1414),
     errorContainer = DustyPink,
     onErrorContainer = Ink,
 )
@@ -45,11 +45,11 @@ fun FujiRecipesTheme(content: @Composable () -> Unit) {
         SideEffect {
             val window = (view.context as Activity).window
             window.statusBarColor = Canvas.toArgb()
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = true
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false
         }
     }
     MaterialTheme(
-        colorScheme = LightColors,
+        colorScheme = DarkColors,
         typography = Typography,
         shapes = Shapes,
         content = content,
