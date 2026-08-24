@@ -165,6 +165,8 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
                     connected.value = false
                 }
             }
+            // Tras conectar, lee los 7 slots de la cámara automáticamente.
+            readFromCamera()
         }
     }
 
@@ -203,6 +205,8 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
                     connected.value = false
                 }
             }
+            // Tras conectar, lee los 7 slots de la cámara automáticamente.
+            readFromCamera()
         }
     }
 
