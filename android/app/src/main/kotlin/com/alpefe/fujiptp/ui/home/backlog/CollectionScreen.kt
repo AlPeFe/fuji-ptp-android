@@ -105,7 +105,8 @@ fun CollectionScreen(
     var sendRecipe by remember { mutableStateOf<RecipeModel?>(null) }
     var addTo by remember { mutableStateOf<RecipeModel?>(null) }
     var showRename by remember { mutableStateOf(false) }
-    var confirmDelete by remember { mutableStateOf(false) }
+    var confirmDeleteCollection by remember { mutableStateOf(false) }
+    var confirmDeleteRecipes by remember { mutableStateOf(false) }
     var selection by remember { mutableStateOf<Set<Long>>(emptySet()) }
 
     val selecting = selection.isNotEmpty()
@@ -169,7 +170,7 @@ fun CollectionScreen(
                                         leadingIcon = { Icon(Icons.Filled.Delete, null) },
                                         onClick = {
                                             menuOpen = false
-                                            confirmDelete = true
+                                            confirmDeleteCollection = true
                                         },
                                     )
                                 }
@@ -221,37 +222,40 @@ fun CollectionScreen(
             visible = selecting,
             enter = slideInVertically(androidx.compose.animation.core.tween(180)) { it } + fadeIn(androidx.compose.animation.core.tween(120)),
             exit = slideOutVertically(androidx.compose.animation.core.tween(150)) { it } + fadeOut(androidx.compose.animation.core.tween(120)),
+            modifier = Modifier.fillMaxSize(),
         ) {
-            Row(
-                Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 92.dp)
-                    .clip(RoundedCornerShape(Radius.control))
-                    .background(Surface)
-                    .padding(horizontal = 18.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconButton(onClick = { selection = emptySet() }) {
-                    Icon(Icons.Filled.Close, contentDescription = "Cancelar", tint = InkSoft)
-                }
-                Text(
-                    "${selection.size} seleccionada${if (selection.size == 1) "" else "s"}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Ink,
-                    modifier = Modifier.weight(1f),
-                )
-                TextButton(
-                    onClick = {
-                        val all = recipes.map { it.id }.toSet()
-                        selection = if (selection == all) emptySet() else all
-                    },
+            Box(Modifier.fillMaxSize()) {
+                Row(
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 92.dp)
+                        .clip(RoundedCornerShape(Radius.control))
+                        .background(Surface)
+                        .padding(horizontal = 18.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(if (selection.size == recipes.size) "Ninguna" else "Todo", color = InkSoft)
-                }
-                TextButton(onClick = { confirmDelete = true }, enabled = selecting) {
-                    Icon(Icons.Filled.Delete, null, Modifier.size(16.dp), tint = Danger)
-                    Spacer(Modifier.width(4.dp))
-                    Text("Borrar (${selection.size})", color = Danger, fontWeight = FontWeight.Bold)
+                    IconButton(onClick = { selection = emptySet() }) {
+                        Icon(Icons.Filled.Close, contentDescription = "Cancelar", tint = InkSoft)
+                    }
+                    Text(
+                        "${selection.size} seleccionada${if (selection.size == 1) "" else "s"}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Ink,
+                        modifier = Modifier.weight(1f),
+                    )
+                    TextButton(
+                        onClick = {
+                            val all = recipes.map { it.id }.toSet()
+                            selection = if (selection == all) emptySet() else all
+                        },
+                    ) {
+                        Text(if (selection.size == recipes.size) "Ninguna" else "Todo", color = InkSoft)
+                    }
+                    TextButton(onClick = { confirmDeleteRecipes = true }, enabled = selecting) {
+                        Icon(Icons.Filled.Delete, null, Modifier.size(16.dp), tint = Danger)
+                        Spacer(Modifier.width(4.dp))
+                        Text("Borrar (${selection.size})", color = Danger, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }
@@ -322,9 +326,9 @@ fun CollectionScreen(
     }
 
     // Confirm delete collection (only non-default).
-    if (confirmDelete) {
+    if (confirmDeleteCollection) {
         AlertDialog(
-            onDismissRequest = { confirmDelete = false },
+            onDismissRequest = { confirmDeleteCollection = false },
             containerColor = MaterialTheme.colorScheme.surface,
             shape = RoundedCornerShape(Radius.card),
             title = { Text("Eliminar colección", style = MaterialTheme.typography.titleLarge) },
@@ -338,7 +342,7 @@ fun CollectionScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        confirmDelete = false
+                        confirmDeleteCollection = false
                         viewModel.deleteCollection(collectionId)
                         onBack()
                     },
@@ -347,44 +351,41 @@ fun CollectionScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { confirmDelete = false }) { Text("Cancelar") }
+                TextButton(onClick = { confirmDeleteCollection = false }) { Text("Cancelar") }
             },
         )
     }
 
     // Confirm bulk delete recipes.
-    if (selection.isNotEmpty() && !confirmDelete && !showRename) {
-        var showBulkConfirm by remember { mutableStateOf(false) }
-        if (showBulkConfirm) {
-            AlertDialog(
-                onDismissRequest = { showBulkConfirm = false },
-                containerColor = MaterialTheme.colorScheme.surface,
-                shape = RoundedCornerShape(Radius.card),
-                title = { Text("Borrar recipes", style = MaterialTheme.typography.titleLarge) },
-                text = {
-                    Text(
-                        "¿Borrar ${selection.size} recipe${if (selection.size == 1) "" else "s"}? Esta acción no se puede deshacer.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = InkSoft,
-                    )
-                },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            val ids = selection.toList()
-                            selection = emptySet()
-                            showBulkConfirm = false
-                            viewModel.deleteRecipes(ids)
-                        },
-                    ) {
-                        Text("Borrar", color = Danger, fontWeight = FontWeight.Bold)
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showBulkConfirm = false }) { Text("Cancelar") }
-                },
-            )
-        }
+    if (confirmDeleteRecipes) {
+        AlertDialog(
+            onDismissRequest = { confirmDeleteRecipes = false },
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(Radius.card),
+            title = { Text("Borrar recipes", style = MaterialTheme.typography.titleLarge) },
+            text = {
+                Text(
+                    "¿Borrar ${selection.size} recipe${if (selection.size == 1) "" else "s"}? Esta acción no se puede deshacer.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = InkSoft,
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val ids = selection.toList()
+                        selection = emptySet()
+                        confirmDeleteRecipes = false
+                        viewModel.deleteRecipes(ids)
+                    },
+                ) {
+                    Text("Borrar", color = Danger, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDeleteRecipes = false }) { Text("Cancelar") }
+            },
+        )
     }
 
     addTo?.let { recipe ->
