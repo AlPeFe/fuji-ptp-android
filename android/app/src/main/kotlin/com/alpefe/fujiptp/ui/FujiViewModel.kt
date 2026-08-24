@@ -355,6 +355,14 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun deleteRecipes(ids: List<Long>) {
+        if (ids.isEmpty()) return
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { ids.forEach { repo.delete(it) } }
+            notifyUser("${ids.size} recipe${if (ids.size == 1) "" else "s"} eliminada${if (ids.size == 1) "" else "s"}")
+        }
+    }
+
     fun duplicateRecipe(id: Long) {
         viewModelScope.launch {
             val newId = withContext(Dispatchers.IO) { repo.duplicate(id) }

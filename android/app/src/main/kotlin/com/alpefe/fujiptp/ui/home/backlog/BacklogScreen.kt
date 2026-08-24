@@ -4,11 +4,13 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
-import androidx.compose.animation.scaleIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,6 +30,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.CreateNewFolder
@@ -39,6 +42,8 @@ import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FloatingActionButton
@@ -71,6 +76,7 @@ import com.alpefe.fujiptp.ui.components.FilmSimulationChip
 import com.alpefe.fujiptp.ui.components.SlotPickerDialog
 import com.alpefe.fujiptp.ui.components.filmTint
 import com.alpefe.fujiptp.ui.theme.Canvas
+import com.alpefe.fujiptp.ui.theme.Danger
 import com.alpefe.fujiptp.ui.theme.Ink
 import com.alpefe.fujiptp.ui.theme.InkSoft
 import com.alpefe.fujiptp.ui.theme.Peach
@@ -82,15 +88,15 @@ import java.util.Date
 
 // Pastel palette for collections.
 val collectionTints = listOf(
-    0xFFEDE6FB, // lavender
-    0xFFDFEEFB, // soft blue
-    0xFFE2F3E4, // pastel green
-    0xFFFFE7D6, // peach
-    0xFFFBF0D3, // soft yellow
-    0xFFF9E3E8, // dusty pink
+    0xFF463A66, // lavender (dark)
+    0xFF35445C, // soft blue
+    0xFF35453A, // pastel green
+    0xFF5A3826, // peach
+    0xFF4E442C, // soft yellow
+    0xFF55303C, // dusty pink
 )
 val collectionDeepTints = listOf(
-    0xFF8B7BD8, 0xFF6E9EDB, 0xFF6FAF7E, 0xFFE89B6E, 0xFFC9A24B, 0xFFD4839A,
+    0xFFA99BE8, 0xFF8FB4E8, 0xFF8FC49C, 0xFFF0A878, 0xFFE0BC6E, 0xFFE89BB1,
 )
 
 @Composable
@@ -100,13 +106,16 @@ fun BacklogScreen(viewModel: FujiViewModel) {
     val slots by viewModel.slots.collectAsStateWithLifecycle()
     val connected by viewModel.connected.collectAsStateWithLifecycle()
     val busy by viewModel.busy.collectAsStateWithLifecycle()
-    val allRecipes by viewModel.backlog.collectAsStateWithLifecycle()
 
     var sendRecipe by remember { mutableStateOf<RecipeModel?>(null) }
     var showCreate by remember { mutableStateOf(false) }
     var renaming by remember { mutableStateOf<CollectionUi?>(null) }
     var addTo by remember { mutableStateOf<RecipeModel?>(null) }
     var collectionMenu by remember { mutableStateOf<CollectionUi?>(null) }
+    var selection by remember { mutableStateOf<Set<Long>>(emptySet()) }
+    var confirmDelete by remember { mutableStateOf(false) }
+
+    val selecting = selection.isNotEmpty()
 
     Box(Modifier.fillMaxSize()) {
         LazyColumn(
@@ -116,29 +125,50 @@ fun BacklogScreen(viewModel: FujiViewModel) {
         ) {
             item {
                 Column {
-                    Text(
-                        "Biblioteca",
-                        style = MaterialTheme.typography.displaySmall,
-                        color = MaterialTheme.colorScheme.onBackground,
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        if (backlog.isEmpty()) {
-                            "Tus recetas guardadas aparecerán aquí"
-                        } else {
-                            "${backlog.size} recipe${if (backlog.size == 1) "" else "s"} en esta colección"
-                        },
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    if (selecting) {
+                        // Contextual header while selecting.
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                "${selection.size} seleccionada${if (selection.size == 1) "" else "s"}",
+                                style = MaterialTheme.typography.headlineMedium,
+                                color = MaterialTheme.colorScheme.onBackground,
+                                modifier = Modifier.weight(1f),
+                            )
+                            IconButton(onClick = { selection = emptySet() }) {
+                                Icon(
+                                    Icons.Filled.Close,
+                                    contentDescription = "Cancelar selección",
+                                    tint = InkSoft,
+                                )
+                            }
+                        }
+                    } else {
+                        Text(
+                            "Biblioteca",
+                            style = MaterialTheme.typography.displaySmall,
+                            color = MaterialTheme.colorScheme.onBackground,
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            if (backlog.isEmpty()) {
+                                "Tus recetas guardadas aparecerán aquí"
+                            } else {
+                                "${backlog.size} recipe${if (backlog.size == 1) "" else "s"} en esta colección"
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
             item {
                 CollectionChips(
                     collections = collections,
-                    onSelect = { viewModel.selectCollection(it.id) },
+                    onSelect = {
+                        selection = emptySet()
+                        viewModel.selectCollection(it.id)
+                    },
                     onCreate = { showCreate = true },
-                    onLongPress = { collectionMenu = it },
                 )
             }
             if (backlog.isEmpty()) {
@@ -158,12 +188,18 @@ fun BacklogScreen(viewModel: FujiViewModel) {
                 }
             }
             items(backlog, key = { it.id }) { recipe ->
+                val selected = recipe.id in selection
                 BacklogCard(
                     recipe = recipe,
                     slotLabel = slots
                         .filter { it.recipe?.id == recipe.id }
                         .joinToString { "C${it.index}" },
                     connected = connected,
+                    selecting = selecting,
+                    selected = selected,
+                    onToggleSelect = {
+                        selection = if (selected) selection - recipe.id else selection + recipe.id
+                    },
                     onOpen = { viewModel.push(Screen.Editor(recipe.id, null)) },
                     onSend = { sendRecipe = recipe },
                     onDuplicate = { viewModel.duplicateRecipe(recipe.id) },
@@ -172,21 +208,123 @@ fun BacklogScreen(viewModel: FujiViewModel) {
                 )
             }
         }
-        FloatingActionButton(
-            onClick = { showCreate = true },
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(24.dp)
-                .size(60.dp),
-            shape = CircleShape,
-            containerColor = Peach,
-            contentColor = PeachDeep,
+
+        // Delete action bar (bottom, above the nav bar) while selecting.
+        AnimatedVisibility(
+            visible = selecting,
+            enter = slideInVertically(tween(180)) { it } + fadeIn(tween(120)),
+            exit = slideOutVertically(tween(150)) { it } + fadeOut(tween(120)),
         ) {
-            Icon(Icons.Filled.Add, contentDescription = "Nueva recipe", modifier = Modifier.size(26.dp))
+            Row(
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 92.dp)
+                    .clip(RoundedCornerShape(Radius.control))
+                    .background(Surface)
+                    .padding(horizontal = 18.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(onClick = { selection = emptySet() }) {
+                    Icon(Icons.Filled.Close, contentDescription = "Cancelar", tint = InkSoft)
+                }
+                Text(
+                    "${selection.size} seleccionada${if (selection.size == 1) "" else "s"}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Ink,
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(
+                    onClick = {
+                        val all = backlog.map { it.id }.toSet()
+                        selection = if (selection == all) emptySet() else all
+                    },
+                ) {
+                    Text(
+                        if (selection.size == backlog.size) "Ninguna" else "Todo",
+                        color = InkSoft,
+                    )
+                }
+                TextButton(
+                    onClick = { confirmDelete = true },
+                    enabled = selecting,
+                ) {
+                    Icon(Icons.Filled.Delete, null, Modifier.size(16.dp), tint = Danger)
+                    Spacer(Modifier.width(4.dp))
+                    Text("Borrar (${selection.size})", color = Danger, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+
+        if (!selecting) {
+            Box(Modifier.align(Alignment.BottomEnd).padding(24.dp)) {
+                var fabMenu by remember { mutableStateOf(false) }
+                FloatingActionButton(
+                    onClick = { fabMenu = true },
+                    modifier = Modifier.size(60.dp),
+                    shape = CircleShape,
+                    containerColor = Peach,
+                    contentColor = PeachDeep,
+                ) {
+                    Icon(Icons.Filled.Add, contentDescription = "Crear", modifier = Modifier.size(26.dp))
+                }
+                DropdownMenu(
+                    expanded = fabMenu,
+                    onDismissRequest = { fabMenu = false },
+                    shape = RoundedCornerShape(18.dp),
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Nueva recipe") },
+                        leadingIcon = { Icon(Icons.Filled.Add, null) },
+                        onClick = {
+                            fabMenu = false
+                            viewModel.push(Screen.Editor(null, null))
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Nueva colección") },
+                        leadingIcon = { Icon(Icons.Filled.CreateNewFolder, null) },
+                        onClick = {
+                            fabMenu = false
+                            showCreate = true
+                        },
+                    )
+                }
+            }
         }
     }
 
-    // Create / rename collection dialog.
+    // Confirm delete dialog.
+    if (confirmDelete) {
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(Radius.card),
+            title = { Text("Borrar recipes", style = MaterialTheme.typography.titleLarge) },
+            text = {
+                Text(
+                    "¿Borrar ${selection.size} recipe${if (selection.size == 1) "" else "s"}? Esta acción no se puede deshacer.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = InkSoft,
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val ids = selection.toList()
+                        selection = emptySet()
+                        confirmDelete = false
+                        viewModel.deleteRecipes(ids)
+                    },
+                ) {
+                    Text("Borrar", color = Danger, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDelete = false }) { Text("Cancelar") }
+            },
+        )
+    }
+
     when {
         showCreate -> CollectionNameDialog(
             title = "Nueva colección",
@@ -202,7 +340,6 @@ fun BacklogScreen(viewModel: FujiViewModel) {
         )
     }
 
-    // Collection overflow menu (rename / delete).
     collectionMenu?.let { collection ->
         AlertDialog(
             onDismissRequest = { collectionMenu = null },
@@ -246,12 +383,10 @@ fun BacklogScreen(viewModel: FujiViewModel) {
         )
     }
 
-    // Add-to-collection picker.
     addTo?.let { recipe ->
         AddToCollectionDialog(
             recipe = recipe,
             collections = collections,
-            currentIds = emptyList(),
             onPick = { collectionId ->
                 viewModel.addToCollection(recipe.id, collectionId)
                 addTo = null
@@ -282,7 +417,6 @@ private fun CollectionChips(
     collections: List<CollectionUi>,
     onSelect: (CollectionUi) -> Unit,
     onCreate: () -> Unit,
-    onLongPress: (CollectionUi) -> Unit,
 ) {
     Row(
         Modifier
@@ -359,7 +493,7 @@ private fun CollectionNameDialog(
                     focusedContainerColor = Surface,
                     unfocusedContainerColor = Surface,
                     focusedBorderColor = PeachDeep.copy(alpha = 0.6f),
-                    unfocusedBorderColor = Color(0xFFEFEBE4),
+                    unfocusedBorderColor = Color(0xFF362F28),
                 ),
             )
         },
@@ -381,7 +515,6 @@ private fun CollectionNameDialog(
 private fun AddToCollectionDialog(
     recipe: RecipeModel,
     collections: List<CollectionUi>,
-    currentIds: List<Long>,
     onPick: (Long) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -429,11 +562,15 @@ private fun AddToCollectionDialog(
     )
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun BacklogCard(
     recipe: RecipeModel,
     slotLabel: String,
     connected: Boolean,
+    selecting: Boolean,
+    selected: Boolean,
+    onToggleSelect: () -> Unit,
     onOpen: () -> Unit,
     onSend: () -> Unit,
     onDuplicate: () -> Unit,
@@ -445,14 +582,39 @@ private fun BacklogCard(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(Radius.card))
-            .clickable(onClick = onOpen),
-        colors = CardDefaults.cardColors(containerColor = Surface),
+            .combinedClickable(
+                onClick = {
+                    if (selecting) onToggleSelect() else onOpen()
+                },
+                onLongClick = {
+                    if (!selecting) onToggleSelect()
+                },
+            ),
+        colors = CardDefaults.cardColors(
+            containerColor = if (selected) {
+                com.alpefe.fujiptp.ui.theme.DustyPink.copy(alpha = 0.5f)
+            } else {
+                Surface
+            },
+        ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Row(
-            Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
+            Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            if (selecting) {
+                Checkbox(
+                    checked = selected,
+                    onCheckedChange = { onToggleSelect() },
+                    colors = CheckboxDefaults.colors(
+                        checkedColor = PeachDeep,
+                        checkmarkColor = Color(0xFF171310),
+                        uncheckedColor = InkSoft,
+                    ),
+                )
+                Spacer(Modifier.width(4.dp))
+            }
             Column(Modifier.weight(1f)) {
                 Text(
                     text = recipe.name.ifBlank { "Sin nombre" },
@@ -480,45 +642,47 @@ private fun BacklogCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Box {
-                IconButton(onClick = { menuOpen = true }) {
-                    Icon(Icons.Filled.MoreVert, contentDescription = "Opciones", tint = InkSoft)
-                }
-                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                    if (connected) {
+            if (!selecting) {
+                Box {
+                    IconButton(onClick = { menuOpen = true }) {
+                        Icon(Icons.Filled.MoreVert, contentDescription = "Opciones", tint = InkSoft)
+                    }
+                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        if (connected) {
+                            DropdownMenuItem(
+                                text = { Text("Enviar a la cámara…") },
+                                leadingIcon = { Icon(Icons.Filled.Send, null) },
+                                onClick = {
+                                    menuOpen = false
+                                    onSend()
+                                },
+                            )
+                        }
                         DropdownMenuItem(
-                            text = { Text("Enviar a la cámara…") },
-                            leadingIcon = { Icon(Icons.Filled.Send, null) },
+                            text = { Text("Añadir a colección…") },
+                            leadingIcon = { Icon(Icons.Filled.CreateNewFolder, null) },
                             onClick = {
                                 menuOpen = false
-                                onSend()
+                                onAddToCollection()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Duplicar") },
+                            leadingIcon = { Icon(Icons.Filled.ContentCopy, null) },
+                            onClick = {
+                                menuOpen = false
+                                onDuplicate()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Borrar") },
+                            leadingIcon = { Icon(Icons.Filled.Delete, null) },
+                            onClick = {
+                                menuOpen = false
+                                onDelete()
                             },
                         )
                     }
-                    DropdownMenuItem(
-                        text = { Text("Añadir a colección…") },
-                        leadingIcon = { Icon(Icons.Filled.CreateNewFolder, null) },
-                        onClick = {
-                            menuOpen = false
-                            onAddToCollection()
-                        },
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Duplicar") },
-                        leadingIcon = { Icon(Icons.Filled.ContentCopy, null) },
-                        onClick = {
-                            menuOpen = false
-                            onDuplicate()
-                        },
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Borrar") },
-                        leadingIcon = { Icon(Icons.Filled.Delete, null) },
-                        onClick = {
-                            menuOpen = false
-                            onDelete()
-                        },
-                    )
                 }
             }
         }
