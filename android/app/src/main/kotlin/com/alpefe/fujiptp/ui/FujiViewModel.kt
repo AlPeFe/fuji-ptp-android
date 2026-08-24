@@ -160,6 +160,9 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
                     bridge = io
                     connected.value = true
                     notifyUser("Cámara conectada")
+                    // La X100VI tarda un instante en estar lista tras abrir
+                    // la sesión; esperamos antes de leer propiedades.
+                    kotlinx.coroutines.delay(600)
                 } catch (e: Exception) {
                     notifyUser("Error de conexión: ${e.message ?: "desconocido"}")
                     connected.value = false
@@ -199,6 +202,9 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
                     bridge = io
                     connected.value = true
                     notifyUser("Cámara conectada")
+                    // La X100VI tarda un instante en estar lista tras abrir
+                    // la sesión; esperamos antes de leer propiedades.
+                    kotlinx.coroutines.delay(600)
                 } catch (e: Exception) {
                     notifyUser("Error de conexión: ${e.message ?: "desconocido"}")
                     runCatching { io.close() }

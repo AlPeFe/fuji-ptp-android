@@ -116,6 +116,8 @@ class UsbIoBridge(
         connection.bulkTransfer(bulkOut, data, data.size, TIMEOUT)
 
     override fun receive(size: Int): ByteArray {
+        // `size` is always a full bulk packet (512) from the Rust transport,
+        // so a single bulkTransfer never drops trailing bytes.
         val buffer = ByteArray(size)
         val count = connection.bulkTransfer(bulkIn, buffer, size, TIMEOUT)
         check(count >= 0) { "USB receive failed: $count" }
@@ -128,6 +130,8 @@ class UsbIoBridge(
     }
 
     companion object {
-        private const val TIMEOUT = 5000
+        // Generous timeout: the X100VI can take several seconds to answer
+        // the first property reads after OPEN_SESSION.
+        private const val TIMEOUT = 10000
     }
 }

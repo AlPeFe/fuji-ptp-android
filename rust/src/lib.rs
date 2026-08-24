@@ -104,21 +104,25 @@ impl Transport for AndroidTransport {
     }
 
     fn receive(&mut self) -> Result<Vec<u8>, TransportError> {
-        // 1. Read the 12-byte header to learn the container length.
-        let header = self.call_receive(12)?;
-        if header.len() < 12 {
+        // Read the first bulk packet (up to the USB max packet size, 512).
+        // Android's bulkTransfer drops any bytes beyond the requested
+        // length, so we always request a full packet and let the parser
+        // consume the container header from whatever came back.
+        const MAX_BULK_PACKET: usize = 512;
+        let first = self.call_receive(MAX_BULK_PACKET as i32)?;
+        if first.len() < 12 {
             return Err(TransportError::ReceiveError);
         }
-        let length = u32::from_le_bytes(header[0..4].try_into().unwrap()) as usize;
+        let length = u32::from_le_bytes(first[0..4].try_into().unwrap()) as usize;
         if !(12..=1024 * 1024).contains(&length) {
             return Err(TransportError::ReceiveError);
         }
-        // 2. Read the declared payload in chunks.
-        let mut packet = header;
+        let mut packet = first;
+        let first_len = packet.len();
         packet.resize(length, 0);
-        let mut offset = 12;
+        let mut offset = first_len;
         while offset < length {
-            let chunk = self.call_receive((length - offset) as i32)?;
+            let chunk = self.call_receive(MAX_BULK_PACKET as i32)?;
             if chunk.is_empty() {
                 return Err(TransportError::ReceiveError);
             }
