@@ -1,7 +1,11 @@
 package com.alpefe.fujiptp.ui.home
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,6 +24,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items as lazyListItems
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Delete
@@ -28,6 +33,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -46,6 +52,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -57,6 +65,19 @@ import com.alpefe.fujiptp.ui.Screen
 import com.alpefe.fujiptp.ui.SlotUi
 import com.alpefe.fujiptp.ui.components.FilmSimulationChip
 import com.alpefe.fujiptp.ui.components.SlotPickerDialog
+import com.alpefe.fujiptp.ui.components.filmTint
+import com.alpefe.fujiptp.ui.theme.Canvas
+import com.alpefe.fujiptp.ui.theme.Ink
+import com.alpefe.fujiptp.ui.theme.InkSoft
+import com.alpefe.fujiptp.ui.theme.PastelGreen
+import com.alpefe.fujiptp.ui.theme.PastelGreenDeep
+import com.alpefe.fujiptp.ui.theme.Peach
+import com.alpefe.fujiptp.ui.theme.PeachDeep
+import com.alpefe.fujiptp.ui.theme.Radius
+import com.alpefe.fujiptp.ui.theme.SoftBlue
+import com.alpefe.fujiptp.ui.theme.SoftBlueDeep
+import com.alpefe.fujiptp.ui.theme.Surface
+import com.alpefe.fujiptp.ui.theme.SurfaceSoft
 
 @Composable
 fun HomeScreen(viewModel: FujiViewModel) {
@@ -73,12 +94,27 @@ fun HomeScreen(viewModel: FujiViewModel) {
     LazyVerticalGrid(
         columns = GridCells.Fixed(2),
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 88.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 24.dp, bottom = 96.dp),
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         item(span = { GridItemSpan(2) }) {
-            ConnectionCard(
+            Column {
+                Text(
+                    "Hola 👋",
+                    style = MaterialTheme.typography.displaySmall,
+                    color = MaterialTheme.colorScheme.onBackground,
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    "Tus recetas Fuji, en orden.",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        item(span = { GridItemSpan(2) }) {
+            CameraCard(
                 connected = connected,
                 devicePresent = devicePresent,
                 cameraLabel = cameraLabel,
@@ -92,11 +128,12 @@ fun HomeScreen(viewModel: FujiViewModel) {
             Column {
                 Text(
                     "Recetas activas",
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onBackground,
                 )
+                Spacer(Modifier.height(2.dp))
                 Text(
-                    "Los 7 slots de la cámara (C1–C7)",
+                    "Tus 7 slots de la cámara, listos para disparar",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -114,7 +151,6 @@ fun HomeScreen(viewModel: FujiViewModel) {
         }
     }
 
-    // Assign dialog: pick a backlog recipe for the chosen slot.
     assignTarget?.let { slot ->
         AssignRecipeDialog(
             backlog = backlog,
@@ -126,7 +162,6 @@ fun HomeScreen(viewModel: FujiViewModel) {
         )
     }
 
-    // Send dialog: pick a camera slot for a recipe (from the backlog screen).
     sendRecipe?.let { recipe ->
         SlotPickerDialog(
             title = "Enviar «${recipe.name}» a…",
@@ -142,7 +177,7 @@ fun HomeScreen(viewModel: FujiViewModel) {
 }
 
 @Composable
-private fun ConnectionCard(
+private fun CameraCard(
     connected: Boolean,
     devicePresent: Boolean,
     cameraLabel: String?,
@@ -151,58 +186,80 @@ private fun ConnectionCard(
     onDisconnect: () -> Unit,
     onRead: () -> Unit,
 ) {
+    val bg = when {
+        connected -> PastelGreen
+        devicePresent -> SoftBlue
+        else -> SurfaceSoft
+    }
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = if (connected) {
-                MaterialTheme.colorScheme.primaryContainer
-            } else {
-                MaterialTheme.colorScheme.surface
-            },
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        shape = RoundedCornerShape(Radius.cardLarge),
+        colors = CardDefaults.cardColors(containerColor = bg),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
-        Column(Modifier.padding(16.dp)) {
+        Column(Modifier.padding(20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(Surface.copy(alpha = 0.85f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.Filled.CameraAlt,
+                        contentDescription = null,
+                        tint = if (connected) PastelGreenDeep else SoftBlueDeep,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = when {
+                            connected -> "Cámara conectada"
+                            devicePresent -> "Cámara detectada"
+                            else -> "Sin cámara"
+                        },
+                        style = MaterialTheme.typography.titleMedium,
+                        color = Ink,
+                    )
+                    cameraLabel?.let {
+                        Text(
+                            it,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = InkSoft,
+                        )
+                    }
+                }
+                Box(
+                    Modifier
                         .size(10.dp)
+                        .clip(CircleShape)
                         .background(
-                            if (connected) Color(0xFF4C9A5A)
-                            else if (devicePresent) Color(0xFFD9A441)
-                            else MaterialTheme.colorScheme.onSurfaceVariant,
-                            CircleShape,
+                            when {
+                                connected -> PastelGreenDeep
+                                devicePresent -> SoftBlueDeep
+                                else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                            },
                         ),
                 )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = when {
-                        connected -> "Cámara conectada"
-                        devicePresent -> "Cámara detectada"
-                        else -> "Sin cámara"
-                    },
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.weight(1f),
-                )
             }
-            cameraLabel?.let {
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    text = it,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Spacer(Modifier.height(12.dp))
-            when {
-                connected -> {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            AnimatedVisibility(visible = connected) {
+                Column {
+                    Spacer(Modifier.height(14.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         FilledTonalButton(
                             onClick = onRead,
                             enabled = !busy,
                             modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(Radius.control),
+                            colors = ButtonDefaults.filledTonalButtonColors(
+                                containerColor = Surface,
+                                contentColor = Ink,
+                            ),
                         ) {
-                            Icon(Icons.Filled.Download, null, Modifier.size(18.dp))
+                            Icon(Icons.Filled.Download, null, Modifier.size(16.dp))
                             Spacer(Modifier.width(6.dp))
                             Text("Leer C1–C7")
                         }
@@ -210,29 +267,42 @@ private fun ConnectionCard(
                             onClick = onDisconnect,
                             enabled = !busy,
                             modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(Radius.control),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Ink),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Surface.copy(alpha = 0.9f)),
                         ) {
                             Text("Desconectar")
                         }
                     }
                 }
-                else -> {
+            }
+            AnimatedVisibility(visible = !connected && devicePresent) {
+                Column {
+                    Spacer(Modifier.height(14.dp))
                     FilledTonalButton(
                         onClick = onConnect,
-                        enabled = devicePresent && !busy,
+                        enabled = !busy,
                         modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(Radius.control),
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = Surface,
+                            contentColor = Ink,
+                        ),
                     ) {
-                        Icon(Icons.Filled.CameraAlt, null, Modifier.size(18.dp))
+                        Icon(Icons.Filled.CameraAlt, null, Modifier.size(16.dp))
                         Spacer(Modifier.width(6.dp))
                         Text("Conectar cámara")
                     }
-                    if (!devicePresent) {
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            "Conecta la cámara por USB en modo «RAW CONV./BACKUP RESTORE».",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
+                }
+            }
+            AnimatedVisibility(visible = !connected && !devicePresent) {
+                Column {
+                    Spacer(Modifier.height(14.dp))
+                    Text(
+                        "Conecta la cámara por USB en modo «RAW CONV./BACKUP RESTORE».",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = InkSoft,
+                    )
                 }
             }
         }
@@ -248,29 +318,40 @@ private fun SlotCard(
     onAssign: () -> Unit,
     onClear: () -> Unit,
 ) {
+    val recipe = slot.recipe
+    val tint = if (recipe != null) filmTint(recipe.filmSimulation) else SurfaceSoft
     var menuOpen by remember { mutableStateOf(false) }
+    val interaction = remember { MutableInteractionSource() }
+    val scale by animateFloatAsState(
+        targetValue = if (menuOpen) 0.97f else 1f,
+        animationSpec = tween(140),
+        label = "slotScale",
+    )
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onOpen),
+            .scale(scale)
+            .clip(RoundedCornerShape(Radius.card))
+            .clickable(interactionSource = interaction, indication = null, onClick = onOpen),
         colors = CardDefaults.cardColors(
-            containerColor = if (slot.recipe != null) {
-                MaterialTheme.colorScheme.surface
-            } else {
-                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
-            },
+            containerColor = if (recipe != null) Surface else tint.copy(alpha = 0.7f),
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
-        Box(Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 12.dp)) {
-            Column(Modifier.padding(end = 8.dp)) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+        ) {
+            Column(Modifier.padding(end = 10.dp)) {
                 Text(
                     text = "C${slot.index}",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = if (recipe != null) MaterialTheme.colorScheme.primary else InkSoft,
                 )
-                Spacer(Modifier.height(6.dp))
-                val recipe = slot.recipe
+                Spacer(Modifier.height(10.dp))
                 if (recipe != null) {
                     Text(
                         text = recipe.name.ifBlank { "Sin nombre" },
@@ -278,35 +359,43 @@ private fun SlotCard(
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(10.dp))
                     FilmSimulationChip(recipe.filmSimulation)
                 } else {
-                    Text(
-                        text = "Vacío",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    Box(
+                        Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(Surface.copy(alpha = 0.8f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text("+", color = InkSoft, style = MaterialTheme.typography.titleMedium)
+                    }
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        text = "Toca para crear",
+                        "Vacío · toca para crear",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = InkSoft,
                     )
                 }
             }
             Box(Modifier.align(Alignment.TopEnd)) {
                 IconButton(onClick = { menuOpen = true }) {
-                    Icon(Icons.Filled.MoreVert, contentDescription = "Opciones de C${slot.index}")
+                    Icon(
+                        Icons.Filled.MoreVert,
+                        contentDescription = "Opciones de C${slot.index}",
+                        tint = InkSoft,
+                    )
                 }
                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                     if (connected) {
                         DropdownMenuItem(
                             text = { Text("Enviar a la cámara") },
                             leadingIcon = { Icon(Icons.Filled.Send, null) },
-                            enabled = slot.recipe != null,
+                            enabled = recipe != null,
                             onClick = {
                                 menuOpen = false
-                                slot.recipe?.let(onSend)
+                                recipe?.let(onSend)
                             },
                         )
                     }
@@ -318,7 +407,7 @@ private fun SlotCard(
                             onAssign()
                         },
                     )
-                    if (slot.recipe != null) {
+                    if (recipe != null) {
                         DropdownMenuItem(
                             text = { Text("Vaciar slot") },
                             leadingIcon = { Icon(Icons.Filled.Delete, null) },
@@ -342,10 +431,16 @@ private fun AssignRecipeDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Asignar recipe") },
+        containerColor = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(Radius.card),
+        title = { Text("Asignar recipe", style = MaterialTheme.typography.titleLarge) },
         text = {
             if (backlog.isEmpty()) {
-                Text("Aún no hay recipes en la biblioteca. Crea una con el botón «+».")
+                Text(
+                    "Aún no hay recipes en la biblioteca. Crea una con el botón «+».",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = InkSoft,
+                )
             } else {
                 Column {
                     Text(
@@ -359,8 +454,10 @@ private fun AssignRecipeDialog(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(filmTint(recipe.filmSimulation).copy(alpha = 0.5f))
                                     .clickable { onPick(recipe) }
-                                    .padding(vertical = 10.dp, horizontal = 4.dp),
+                                    .padding(horizontal = 14.dp, vertical = 12.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Column(Modifier.weight(1f)) {
@@ -375,6 +472,7 @@ private fun AssignRecipeDialog(
                                     FilmSimulationChip(recipe.filmSimulation)
                                 }
                             }
+                            Spacer(Modifier.height(8.dp))
                         }
                     }
                 }

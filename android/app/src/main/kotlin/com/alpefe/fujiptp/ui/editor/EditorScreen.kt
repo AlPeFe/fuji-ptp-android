@@ -1,7 +1,14 @@
 package com.alpefe.fujiptp.ui.editor
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,21 +26,23 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -45,6 +54,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -58,7 +69,24 @@ import com.alpefe.fujiptp.data.WhiteBalanceMode
 import com.alpefe.fujiptp.ui.FujiViewModel
 import com.alpefe.fujiptp.ui.components.FilmSimulationChip
 import com.alpefe.fujiptp.ui.components.LabeledDropdown
+import com.alpefe.fujiptp.ui.components.PressablePill
 import com.alpefe.fujiptp.ui.components.SlotPickerDialog
+import com.alpefe.fujiptp.ui.components.filmTint
+import com.alpefe.fujiptp.ui.theme.Canvas
+import com.alpefe.fujiptp.ui.theme.DustyPink
+import com.alpefe.fujiptp.ui.theme.Ink
+import com.alpefe.fujiptp.ui.theme.InkSoft
+import com.alpefe.fujiptp.ui.theme.Lavender
+import com.alpefe.fujiptp.ui.theme.LavenderDeep
+import com.alpefe.fujiptp.ui.theme.Peach
+import com.alpefe.fujiptp.ui.theme.PeachDeep
+import com.alpefe.fujiptp.ui.theme.Radius
+import com.alpefe.fujiptp.ui.theme.SoftBlue
+import com.alpefe.fujiptp.ui.theme.SoftBlueDeep
+import com.alpefe.fujiptp.ui.theme.SoftYellow
+import com.alpefe.fujiptp.ui.theme.SoftYellowDeep
+import com.alpefe.fujiptp.ui.theme.Surface
+import com.alpefe.fujiptp.ui.theme.SurfaceSoft
 import kotlin.math.roundToInt
 
 @Composable
@@ -88,18 +116,22 @@ fun EditorScreen(
 
     val current = recipe ?: return
 
-    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+    Surface(Modifier.fillMaxSize(), color = Canvas) {
         Column(Modifier.fillMaxSize()) {
-            // Top bar (below the status bar; API 35+ draws edge-to-edge)
+            // Top bar (below the status bar)
             Row(
                 Modifier
                     .fillMaxWidth()
                     .statusBarsPadding()
-                    .padding(horizontal = 4.dp, vertical = 6.dp),
+                    .padding(horizontal = 8.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Volver",
+                        tint = Ink,
+                    )
                 }
                 Text(
                     text = if (recipeId != null) current.name.ifBlank { "Recipe" } else "Nueva recipe",
@@ -113,13 +145,17 @@ fun EditorScreen(
                     },
                     enabled = !busy,
                 ) {
-                    Text("Guardar", fontWeight = FontWeight.Bold)
+                    Text(
+                        "Guardar",
+                        fontWeight = FontWeight.Bold,
+                        color = PeachDeep,
+                    )
                 }
             }
 
             LazyColumn(
                 modifier = Modifier.weight(1f),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp),
+                contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 32.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 // Name
@@ -133,238 +169,313 @@ fun EditorScreen(
                         label = { Text("Nombre de la recipe") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(Radius.control),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = Surface,
+                            unfocusedContainerColor = Surface,
+                            focusedBorderColor = PeachDeep.copy(alpha = 0.6f),
+                            unfocusedBorderColor = HairlineColor,
+                        ),
                     )
                 }
 
                 // Film simulation
                 item {
-                    SectionTitle("Simulación de película")
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .clickable { pickFilm = true }
-                            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(10.dp))
-                            .padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        FilmSimulationChip(current.filmSimulation)
-                        Spacer(Modifier.weight(1f))
-                        Text(
-                            "Cambiar ▾",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
+                    SectionCard(tint = DustyPink) {
+                        SectionTitle("Simulación de película")
+                        Spacer(Modifier.height(12.dp))
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .clip(androidx.compose.foundation.shape.RoundedCornerShape(Radius.control))
+                                .background(filmTint(current.filmSimulation).copy(alpha = 0.6f))
+                                .clickable { pickFilm = true }
+                                .padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            FilmSimulationChip(current.filmSimulation)
+                            Spacer(Modifier.weight(1f))
+                            Text(
+                                "Cambiar ▾",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = InkSoft,
+                            )
+                        }
                     }
                 }
 
-                // Dynamic range (X100VI: DR + DR Priority)
+                // Dynamic range
                 item {
-                    SectionTitle("Rango dinámico")
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        DynamicRange.entries.forEach { dr ->
-                            ChoiceChip(
-                                label = dr.label,
-                                selected = current.dynamicRange == dr && current.dynamicRangePriority == 0,
+                    SectionCard(tint = SoftBlue) {
+                        SectionTitle("Rango dinámico")
+                        Spacer(Modifier.height(10.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            DynamicRange.entries.forEach { dr ->
+                                PressablePill(
+                                    text = dr.label,
+                                    selected = current.dynamicRange == dr && current.dynamicRangePriority == 0,
+                                    tint = SoftBlueDeep,
+                                    onClick = {
+                                        recipe = current.copy(dynamicRange = dr, dynamicRangePriority = 0)
+                                        dirty = true
+                                    },
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            "Prioridad DR",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = InkSoft,
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            PressablePill(
+                                "Off",
+                                current.dynamicRangePriority == 0,
+                                tint = SoftBlueDeep,
                                 onClick = {
-                                    recipe = current.copy(dynamicRange = dr, dynamicRangePriority = 0)
+                                    recipe = current.copy(dynamicRangePriority = 0)
+                                    dirty = true
+                                },
+                            )
+                            PressablePill(
+                                "Auto",
+                                current.dynamicRangePriority == 1,
+                                tint = SoftBlueDeep,
+                                onClick = {
+                                    recipe = current.copy(dynamicRangePriority = 1)
+                                    dirty = true
+                                },
+                            )
+                            PressablePill(
+                                "Strong",
+                                current.dynamicRangePriority == 2,
+                                tint = SoftBlueDeep,
+                                onClick = {
+                                    recipe = current.copy(dynamicRangePriority = 2)
+                                    dirty = true
+                                },
+                            )
+                            PressablePill(
+                                "Weak",
+                                current.dynamicRangePriority == 32768,
+                                tint = SoftBlueDeep,
+                                onClick = {
+                                    recipe = current.copy(dynamicRangePriority = 32768)
                                     dirty = true
                                 },
                             )
                         }
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            "Prioridad DR:",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        ChoiceChip("Off", current.dynamicRangePriority == 0) {
-                            recipe = current.copy(dynamicRangePriority = 0)
-                            dirty = true
+                        AnimatedVisibility(visible = current.dynamicRangePriority != 0) {
+                            Column {
+                                Spacer(Modifier.height(8.dp))
+                                Text(
+                                    "Con DR Priority activo, la cámara fija el DR en AUTO.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = InkSoft,
+                                )
+                            }
                         }
-                        ChoiceChip("Auto", current.dynamicRangePriority == 1) {
-                            recipe = current.copy(dynamicRangePriority = 1)
-                            dirty = true
-                        }
-                        ChoiceChip("Strong", current.dynamicRangePriority == 2) {
-                            recipe = current.copy(dynamicRangePriority = 2)
-                            dirty = true
-                        }
-                        ChoiceChip("Weak", current.dynamicRangePriority == 32768) {
-                            recipe = current.copy(dynamicRangePriority = 32768)
-                            dirty = true
-                        }
-                    }
-                    if (current.dynamicRangePriority != 0) {
-                        Spacer(Modifier.height(6.dp))
-                        Text(
-                            "Con DR Priority activo, la cámara fija el DR en AUTO.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
                     }
                 }
 
                 // Effects
                 item {
-                    SectionTitle("Efectos")
-                    LabeledDropdown(
-                        label = "Grain Effect",
-                        options = GrainEffect.entries.toList(),
-                        optionLabel = { it.label },
-                        selected = current.grainEffect,
-                        onSelect = {
-                            recipe = current.copy(grainEffect = it)
-                            dirty = true
-                        },
-                    )
-                    if (!current.isMonochrome) {
+                    SectionCard(tint = Lavender) {
+                        SectionTitle("Efectos")
                         Spacer(Modifier.height(12.dp))
                         LabeledDropdown(
-                            label = "Color Chrome Effect",
-                            options = EffectStrength.entries.toList(),
+                            label = "Grain Effect",
+                            options = GrainEffect.entries.toList(),
                             optionLabel = { it.label },
-                            selected = current.colorChrome,
+                            selected = current.grainEffect,
                             onSelect = {
-                                recipe = current.copy(colorChrome = it)
+                                recipe = current.copy(grainEffect = it)
                                 dirty = true
                             },
+                            tint = Surface,
                         )
+                        AnimatedVisibility(visible = !current.isMonochrome) {
+                            Column {
+                                Spacer(Modifier.height(12.dp))
+                                LabeledDropdown(
+                                    label = "Color Chrome Effect",
+                                    options = EffectStrength.entries.toList(),
+                                    optionLabel = { it.label },
+                                    selected = current.colorChrome,
+                                    onSelect = {
+                                        recipe = current.copy(colorChrome = it)
+                                        dirty = true
+                                    },
+                                    tint = Surface,
+                                )
+                                Spacer(Modifier.height(12.dp))
+                                LabeledDropdown(
+                                    label = "Color Chrome FX Blue",
+                                    options = EffectStrength.entries.toList(),
+                                    optionLabel = { it.label },
+                                    selected = current.colorChromeFxBlue,
+                                    onSelect = {
+                                        recipe = current.copy(colorChromeFxBlue = it)
+                                        dirty = true
+                                    },
+                                    tint = Surface,
+                                )
+                            }
+                        }
                         Spacer(Modifier.height(12.dp))
                         LabeledDropdown(
-                            label = "Color Chrome FX Blue",
+                            label = "Smooth Skin Effect",
                             options = EffectStrength.entries.toList(),
                             optionLabel = { it.label },
-                            selected = current.colorChromeFxBlue,
+                            selected = current.smoothSkin,
                             onSelect = {
-                                recipe = current.copy(colorChromeFxBlue = it)
+                                recipe = current.copy(smoothSkin = it)
                                 dirty = true
                             },
+                            tint = Surface,
                         )
                     }
-                    Spacer(Modifier.height(12.dp))
-                    LabeledDropdown(
-                        label = "Smooth Skin Effect",
-                        options = EffectStrength.entries.toList(),
-                        optionLabel = { it.label },
-                        selected = current.smoothSkin,
-                        onSelect = {
-                            recipe = current.copy(smoothSkin = it)
-                            dirty = true
-                        },
-                    )
                 }
 
                 // White balance
                 item {
-                    SectionTitle("Balance de blancos")
-                    LabeledDropdown(
-                        label = "Modo",
-                        options = WhiteBalanceMode.entries.toList(),
-                        optionLabel = { it.label },
-                        selected = current.whiteBalanceMode,
-                        onSelect = {
-                            recipe = current.copy(whiteBalanceMode = it)
-                            dirty = true
-                        },
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    DialSlider("Desplaz. R", current.whiteBalanceShiftR.toFloat(), -9f..9f, 1f, enabled = !current.isMonochrome) {
-                        recipe = current.copy(whiteBalanceShiftR = it.toInt())
-                        dirty = true
-                    }
-                    DialSlider("Desplaz. B", current.whiteBalanceShiftB.toFloat(), -9f..9f, 1f, enabled = !current.isMonochrome) {
-                        recipe = current.copy(whiteBalanceShiftB = it.toInt())
-                        dirty = true
-                    }
-                    if (current.whiteBalanceMode == WhiteBalanceMode.ColorTemperature) {
+                    SectionCard(tint = SoftYellow) {
+                        SectionTitle("Balance de blancos")
+                        Spacer(Modifier.height(12.dp))
+                        LabeledDropdown(
+                            label = "Modo",
+                            options = WhiteBalanceMode.entries.toList(),
+                            optionLabel = { it.label },
+                            selected = current.whiteBalanceMode,
+                            onSelect = {
+                                recipe = current.copy(whiteBalanceMode = it)
+                                dirty = true
+                            },
+                            tint = Surface,
+                        )
+                        Spacer(Modifier.height(12.dp))
                         DialSlider(
-                            "Temperatura (K)",
-                            (current.whiteBalanceTemperature ?: 5500).toFloat(),
-                            2500f..10000f,
-                            100f,
+                            "Desplaz. R",
+                            current.whiteBalanceShiftR.toFloat(),
+                            -9f..9f,
+                            1f,
+                            enabled = !current.isMonochrome,
                         ) {
-                            recipe = current.copy(whiteBalanceTemperature = it.toInt())
+                            recipe = current.copy(whiteBalanceShiftR = it.toInt())
                             dirty = true
+                        }
+                        DialSlider(
+                            "Desplaz. B",
+                            current.whiteBalanceShiftB.toFloat(),
+                            -9f..9f,
+                            1f,
+                            enabled = !current.isMonochrome,
+                        ) {
+                            recipe = current.copy(whiteBalanceShiftB = it.toInt())
+                            dirty = true
+                        }
+                        AnimatedVisibility(visible = current.whiteBalanceMode == WhiteBalanceMode.ColorTemperature) {
+                            Column {
+                                DialSlider(
+                                    "Temperatura (K)",
+                                    (current.whiteBalanceTemperature ?: 5500).toFloat(),
+                                    2500f..10000f,
+                                    100f,
+                                ) {
+                                    recipe = current.copy(whiteBalanceTemperature = it.toInt())
+                                    dirty = true
+                                }
+                            }
                         }
                     }
                 }
 
                 // Tones
                 item {
-                    SectionTitle("Tonalidad")
-                    DialSlider("Highlight", current.highlight, -2f..2f, 0.5f) {
-                        recipe = current.copy(highlight = it)
-                        dirty = true
-                    }
-                    DialSlider("Shadow", current.shadow, -2f..2f, 0.5f) {
-                        recipe = current.copy(shadow = it)
-                        dirty = true
-                    }
-                    DialSlider("Color", current.color, -4f..4f, 0.5f) {
-                        recipe = current.copy(color = it)
-                        dirty = true
-                    }
-                    DialSlider("Sharpness", current.sharpness, -4f..4f, 0.5f) {
-                        recipe = current.copy(sharpness = it)
-                        dirty = true
-                    }
-                    DialSlider("Clarity", current.clarity, -5f..5f, 1f) {
-                        recipe = current.copy(clarity = it)
-                        dirty = true
+                    SectionCard(tint = Peach) {
+                        SectionTitle("Tonalidad")
+                        Spacer(Modifier.height(8.dp))
+                        DialSlider("Highlight", current.highlight, -2f..2f, 0.5f) {
+                            recipe = current.copy(highlight = it)
+                            dirty = true
+                        }
+                        DialSlider("Shadow", current.shadow, -2f..2f, 0.5f) {
+                            recipe = current.copy(shadow = it)
+                            dirty = true
+                        }
+                        DialSlider("Color", current.color, -4f..4f, 0.5f) {
+                            recipe = current.copy(color = it)
+                            dirty = true
+                        }
+                        DialSlider("Sharpness", current.sharpness, -4f..4f, 0.5f) {
+                            recipe = current.copy(sharpness = it)
+                            dirty = true
+                        }
+                        DialSlider("Clarity", current.clarity, -5f..5f, 1f) {
+                            recipe = current.copy(clarity = it)
+                            dirty = true
+                        }
                     }
                 }
 
                 // Noise reduction
                 item {
-                    SectionTitle("Reducción de ruido")
-                    DialSlider("High ISO NR", current.noiseReduction.toFloat(), -4f..4f, 1f) {
-                        recipe = current.copy(noiseReduction = it.toInt())
-                        dirty = true
+                    SectionCard(tint = DustyPink) {
+                        SectionTitle("Reducción de ruido")
+                        Spacer(Modifier.height(8.dp))
+                        DialSlider("High ISO NR", current.noiseReduction.toFloat(), -4f..4f, 1f) {
+                            recipe = current.copy(noiseReduction = it.toInt())
+                            dirty = true
+                        }
                     }
                 }
 
                 // Monochrome adjustments
-                if (current.isMonochrome) {
-                    item {
-                        SectionTitle("Ajustes monocromo")
-                        DialSlider("WC (Warm/Cool)", current.monochromeWc, -4f..4f, 0.5f) {
-                            recipe = current.copy(monochromeWc = it)
-                            dirty = true
-                        }
-                        DialSlider("MG (Magenta/Green)", current.monochromeMg, -4f..4f, 0.5f) {
-                            recipe = current.copy(monochromeMg = it)
-                            dirty = true
+                item {
+                    AnimatedVisibility(visible = current.isMonochrome) {
+                        SectionCard(tint = SurfaceSoft) {
+                            SectionTitle("Ajustes monocromo")
+                            Spacer(Modifier.height(8.dp))
+                            DialSlider("WC (Warm/Cool)", current.monochromeWc, -4f..4f, 0.5f) {
+                                recipe = current.copy(monochromeWc = it)
+                                dirty = true
+                            }
+                            DialSlider("MG (Magenta/Green)", current.monochromeMg, -4f..4f, 0.5f) {
+                                recipe = current.copy(monochromeMg = it)
+                                dirty = true
+                            }
                         }
                     }
                 }
 
                 item {
-                    Spacer(Modifier.height(4.dp))
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f))
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        if (connected) {
-                            "La recipe se guarda en la biblioteca. Usa «Enviar a la cámara» para escribirla en un slot."
-                        } else {
-                            "Sin cámara conectada: la recipe se guardará en la biblioteca y podrás enviarla después."
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    FilledTonalButton(
-                        onClick = { pickSlot = true },
-                        enabled = connected && !busy,
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Icon(Icons.Filled.Send, null, Modifier.size(18.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("Enviar a la cámara…")
+                    Column {
+                        Text(
+                            if (connected) {
+                                "La recipe se guarda en la biblioteca. Usa «Enviar a la cámara» para escribirla en un slot."
+                            } else {
+                                "Sin cámara conectada: la recipe se guardará en la biblioteca y podrás enviarla después."
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = InkSoft,
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        Button(
+                            onClick = { pickSlot = true },
+                            enabled = connected && !busy,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(Radius.control),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = PeachDeep,
+                                contentColor = Color.White,
+                            ),
+                        ) {
+                            Icon(Icons.Filled.Send, null, Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Enviar a la cámara…")
+                        }
                     }
                 }
             }
@@ -398,40 +509,28 @@ fun EditorScreen(
     }
 }
 
+private val HairlineColor = Color(0xFFEFEBE4)
+
+@Composable
+private fun SectionCard(tint: Color, content: @Composable () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(Radius.card),
+        colors = CardDefaults.cardColors(containerColor = tint.copy(alpha = 0.55f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    ) {
+        Column(Modifier.padding(18.dp)) {
+            content()
+        }
+    }
+}
+
 @Composable
 private fun SectionTitle(text: String) {
     Text(
         text = text,
         style = MaterialTheme.typography.titleMedium,
-        color = MaterialTheme.colorScheme.onBackground,
-    )
-}
-
-@Composable
-private fun ChoiceChip(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
-    val background = if (selected) {
-        MaterialTheme.colorScheme.primary
-    } else {
-        MaterialTheme.colorScheme.surfaceVariant
-    }
-    val content = if (selected) {
-        MaterialTheme.colorScheme.onPrimary
-    } else {
-        MaterialTheme.colorScheme.onSurfaceVariant
-    }
-    Text(
-        text = label,
-        modifier = Modifier
-            .clickable(onClick = onClick)
-            .background(background, RoundedCornerShape(8.dp))
-            .padding(horizontal = 14.dp, vertical = 8.dp),
-        style = MaterialTheme.typography.labelLarge,
-        color = content,
-        fontWeight = FontWeight.SemiBold,
+        color = Ink,
     )
 }
 
@@ -455,8 +554,7 @@ private fun DialSlider(
             Text(
                 text = fmtDial(value),
                 style = MaterialTheme.typography.labelLarge,
-                color = if (value == 0f) MaterialTheme.colorScheme.onSurfaceVariant
-                else MaterialTheme.colorScheme.primary,
+                color = if (value == 0f) InkSoft else PeachDeep,
             )
         }
         Slider(
@@ -465,6 +563,14 @@ private fun DialSlider(
             valueRange = range,
             steps = steps,
             enabled = enabled,
+            colors = SliderDefaults.colors(
+                thumbColor = PeachDeep,
+                activeTrackColor = PeachDeep,
+                inactiveTrackColor = PeachDeep.copy(alpha = 0.15f),
+                disabledThumbColor = InkSoft.copy(alpha = 0.4f),
+                disabledActiveTrackColor = InkSoft.copy(alpha = 0.2f),
+                disabledInactiveTrackColor = InkSoft.copy(alpha = 0.1f),
+            ),
         )
     }
 }
@@ -486,37 +592,37 @@ private fun FilmPickerDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Simulación de película") },
+        containerColor = MaterialTheme.colorScheme.surface,
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(Radius.card),
+        title = { Text("Simulación de película", style = MaterialTheme.typography.titleLarge) },
         text = {
             LazyVerticalGrid(
                 columns = GridCells.Fixed(2),
-                modifier = Modifier.height(380.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.height(400.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 items(FilmSimulation.entries.toList()) { film ->
                     val isSelected = film == selected
+                    val tint = filmTint(film)
                     Column(
                         Modifier
                             .fillMaxWidth()
+                            .clip(androidx.compose.foundation.shape.RoundedCornerShape(18.dp))
+                            .background(if (isSelected) tint else tint.copy(alpha = 0.45f))
                             .clickable { onPick(film) }
-                            .background(
-                                if (isSelected) Color(film.hex) else Color(film.hex).copy(alpha = 0.14f),
-                                RoundedCornerShape(10.dp),
-                            )
-                            .padding(10.dp),
+                            .padding(12.dp),
                     ) {
                         Text(
                             text = film.label,
                             style = MaterialTheme.typography.labelMedium,
-                            color = if (isSelected) Color.White else Color(film.hex),
                             fontWeight = FontWeight.Bold,
+                            color = Ink,
                         )
                         Text(
                             text = film.wire,
                             style = MaterialTheme.typography.labelSmall,
-                            color = if (isSelected) Color.White.copy(alpha = 0.85f)
-                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = InkSoft,
                         )
                     }
                 }
