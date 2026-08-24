@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Matches Fujifilm cameras (vendor 0x04CB). -->
+<resources>
+    <usb-device vendor-id="1227" />
+</resources>

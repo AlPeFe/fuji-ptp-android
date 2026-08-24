@@ -1,0 +1,105 @@
+package com.alpefe.fujiptp.data
+
+import androidx.room.Entity
+import androidx.room.PrimaryKey
+
+@Entity(tableName = "recipes")
+data class RecipeEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0L,
+    val name: String,
+    val filmSimulation: String,
+    val dynamicRange: String,
+    val grainEffect: String,
+    val smoothSkin: String,
+    val colorChrome: String,
+    val colorChromeFxBlue: String,
+    val whiteBalanceMode: String,
+    val whiteBalanceShiftR: Int,
+    val whiteBalanceShiftB: Int,
+    val whiteBalanceTemperature: Int?,
+    val highlight: Float,
+    val shadow: Float,
+    val color: Float,
+    val sharpness: Float,
+    val clarity: Float,
+    val noiseReduction: Int,
+    val exposure: Float,
+    val dynamicRangePriority: Int,
+    val monochromeWc: Float,
+    val monochromeMg: Float,
+    val createdAt: Long,
+    val updatedAt: Long,
+) {
+    fun toModel(): RecipeModel = RecipeModel(
+        id = id,
+        name = name,
+        filmSimulation = enumWire(FilmSimulation.entries, filmSimulation, FilmSimulation.ClassicChrome),
+        dynamicRange = enumWire(DynamicRange.entries, dynamicRange, DynamicRange.Dr100),
+        grainEffect = enumWire(GrainEffect.entries, grainEffect, GrainEffect.Off),
+        smoothSkin = enumWire(EffectStrength.entries, smoothSkin, EffectStrength.Off),
+        colorChrome = enumWire(EffectStrength.entries, colorChrome, EffectStrength.Off),
+        colorChromeFxBlue = enumWire(EffectStrength.entries, colorChromeFxBlue, EffectStrength.Off),
+        whiteBalanceMode = enumWire(WhiteBalanceMode.entries, whiteBalanceMode, WhiteBalanceMode.Auto),
+        whiteBalanceShiftR = whiteBalanceShiftR,
+        whiteBalanceShiftB = whiteBalanceShiftB,
+        whiteBalanceTemperature = whiteBalanceTemperature,
+        highlight = highlight,
+        shadow = shadow,
+        color = color,
+        sharpness = sharpness,
+        clarity = clarity,
+        noiseReduction = noiseReduction,
+        exposure = exposure,
+        dynamicRangePriority = dynamicRangePriority,
+        monochromeWc = monochromeWc,
+        monochromeMg = monochromeMg,
+        createdAt = createdAt,
+        updatedAt = updatedAt,
+    )
+
+    companion object {
+        private fun <T : Enum<T>> enumWire(values: List<T>, wire: String, fallback: T): T =
+            values.firstOrNull { it.name == wire } ?: fallback
+
+        fun fromModel(m: RecipeModel, now: Long): RecipeEntity = RecipeEntity(
+            id = m.id,
+            name = m.name,
+            filmSimulation = m.filmSimulation.name,
+            dynamicRange = m.dynamicRange.name,
+            grainEffect = m.grainEffect.name,
+            smoothSkin = m.smoothSkin.name,
+            colorChrome = m.colorChrome.name,
+            colorChromeFxBlue = m.colorChromeFxBlue.name,
+            whiteBalanceMode = m.whiteBalanceMode.name,
+            whiteBalanceShiftR = m.whiteBalanceShiftR,
+            whiteBalanceShiftB = m.whiteBalanceShiftB,
+            whiteBalanceTemperature = m.whiteBalanceTemperature,
+            highlight = m.highlight,
+            shadow = m.shadow,
+            color = m.color,
+            sharpness = m.sharpness,
+            clarity = m.clarity,
+            noiseReduction = m.noiseReduction,
+            exposure = m.exposure,
+            dynamicRangePriority = m.dynamicRangePriority,
+            monochromeWc = m.monochromeWc,
+            monochromeMg = m.monochromeMg,
+            createdAt = if (m.createdAt > 0) m.createdAt else now,
+            updatedAt = now,
+        )
+    }
+}
+
+/** One of the 7 physical camera slots (C1..C7). */
+@Entity(tableName = "slots")
+data class SlotEntity(
+    @PrimaryKey val slotIndex: Int,
+    val recipeId: Long?,
+    val updatedAt: Long,
+)
+
+/** Slot joined with its assigned recipe (recipe may be null = empty slot). */
+data class SlotWithRecipe(
+    val slotIndex: Int,
+    @androidx.room.Embedded val recipe: RecipeEntity?,
+)

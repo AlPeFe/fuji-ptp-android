@@ -1,0 +1,16 @@
+[package]
+name = "fuji-ptp-android"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# Protocol core lives in its own repository.
+fuji-ptp-core = { git = "https://github.com/AlPeFe/fuji-ptp-core", branch = "master" }
+jni = "0.21"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[workspace]
