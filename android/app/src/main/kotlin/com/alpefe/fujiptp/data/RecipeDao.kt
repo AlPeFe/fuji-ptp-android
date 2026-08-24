@@ -10,6 +10,8 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface RecipeDao {
 
+    // --- recipes ------------------------------------------------------------
+
     @Query("SELECT * FROM recipes ORDER BY updatedAt DESC")
     fun observeAll(): Flow<List<RecipeEntity>>
 
@@ -28,7 +30,7 @@ interface RecipeDao {
     @Query("SELECT COUNT(*) FROM recipes")
     suspend fun count(): Int
 
-    // --- slots ------------------------------------------------------------
+    // --- slots ----------------------------------------------------------------
 
     @Query(
         """SELECT s.slotIndex AS slotIndex, r.* FROM slots s
@@ -51,6 +53,60 @@ interface RecipeDao {
 
     @Query("DELETE FROM slots WHERE recipeId = :recipeId")
     suspend fun unassignRecipe(recipeId: Long)
+
+    // --- collections -----------------------------------------------------------
+
+    @Query(
+        """SELECT c.id AS id, c.name AS name, c.colorHex AS colorHex,
+                   c.isDefault AS isDefault,
+                   (SELECT COUNT(*) FROM recipe_collections rc WHERE rc.collectionId = c.id) AS count
+           FROM collections c
+           ORDER BY c.isDefault DESC, c.name COLLATE NOCASE"""
+    )
+    fun observeCollections(): Flow<List<CollectionWithCount>>
+
+    @Query("SELECT * FROM collections WHERE id = :id")
+    suspend fun getCollection(id: Long): CollectionEntity?
+
+    @Query("SELECT * FROM collections ORDER BY id ASC")
+    suspend fun getAllCollections(): List<CollectionEntity>
+
+    @Query("SELECT id FROM collections WHERE isDefault = 1 LIMIT 1")
+    suspend fun getDefaultCollectionId(): Long?
+
+    @Query("SELECT COUNT(*) FROM collections")
+    suspend fun collectionCount(): Int
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertCollection(collection: CollectionEntity): Long
+
+    @Update
+    suspend fun updateCollection(collection: CollectionEntity)
+
+    @Query("DELETE FROM collections WHERE id = :id AND isDefault = 0")
+    suspend fun deleteCollection(id: Long)
+
+    @Query("INSERT OR IGNORE INTO recipe_collections (recipeId, collectionId) VALUES (:recipeId, :collectionId)")
+    suspend fun addRecipeToCollection(recipeId: Long, collectionId: Long)
+
+    @Query("DELETE FROM recipe_collections WHERE recipeId = :recipeId AND collectionId = :collectionId")
+    suspend fun removeRecipeFromCollection(recipeId: Long, collectionId: Long)
+
+    @Query("SELECT collectionId FROM recipe_collections WHERE recipeId = :recipeId")
+    suspend fun collectionIdsForRecipe(recipeId: Long): List<Long>
+
+    @Query("DELETE FROM recipe_collections WHERE collectionId = :collectionId")
+    suspend fun clearCollection(collectionId: Long)
+
+    // --- recipes in a collection ------------------------------------------------
+
+    @Query(
+        """SELECT r.* FROM recipes r
+           INNER JOIN recipe_collections rc ON r.id = rc.recipeId
+           WHERE rc.collectionId = :collectionId
+           ORDER BY r.updatedAt DESC"""
+    )
+    fun observeRecipesInCollection(collectionId: Long): Flow<List<RecipeEntity>>
 
     data class SlotIndexRow(val slotIndex: Int, val recipeId: Long?)
 }

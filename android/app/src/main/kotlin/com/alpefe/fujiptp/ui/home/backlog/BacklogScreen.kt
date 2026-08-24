@@ -7,6 +7,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.scaleIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,13 +23,20 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Send
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -37,7 +45,10 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -47,11 +58,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.alpefe.fujiptp.data.RecipeModel
+import com.alpefe.fujiptp.ui.CollectionUi
 import com.alpefe.fujiptp.ui.FujiViewModel
 import com.alpefe.fujiptp.ui.Screen
 import com.alpefe.fujiptp.ui.components.FilmSimulationChip
@@ -67,14 +80,33 @@ import com.alpefe.fujiptp.ui.theme.Surface
 import java.text.DateFormat
 import java.util.Date
 
+// Pastel palette for collections.
+val collectionTints = listOf(
+    0xFFEDE6FB, // lavender
+    0xFFDFEEFB, // soft blue
+    0xFFE2F3E4, // pastel green
+    0xFFFFE7D6, // peach
+    0xFFFBF0D3, // soft yellow
+    0xFFF9E3E8, // dusty pink
+)
+val collectionDeepTints = listOf(
+    0xFF8B7BD8, 0xFF6E9EDB, 0xFF6FAF7E, 0xFFE89B6E, 0xFFC9A24B, 0xFFD4839A,
+)
+
 @Composable
 fun BacklogScreen(viewModel: FujiViewModel) {
-    val backlog by viewModel.backlog.collectAsStateWithLifecycle()
+    val backlog by viewModel.libraryRecipes.collectAsStateWithLifecycle()
+    val collections by viewModel.collections.collectAsStateWithLifecycle()
     val slots by viewModel.slots.collectAsStateWithLifecycle()
     val connected by viewModel.connected.collectAsStateWithLifecycle()
     val busy by viewModel.busy.collectAsStateWithLifecycle()
+    val allRecipes by viewModel.backlog.collectAsStateWithLifecycle()
 
     var sendRecipe by remember { mutableStateOf<RecipeModel?>(null) }
+    var showCreate by remember { mutableStateOf(false) }
+    var renaming by remember { mutableStateOf<CollectionUi?>(null) }
+    var addTo by remember { mutableStateOf<RecipeModel?>(null) }
+    var collectionMenu by remember { mutableStateOf<CollectionUi?>(null) }
 
     Box(Modifier.fillMaxSize()) {
         LazyColumn(
@@ -94,11 +126,35 @@ fun BacklogScreen(viewModel: FujiViewModel) {
                         if (backlog.isEmpty()) {
                             "Tus recetas guardadas aparecerán aquí"
                         } else {
-                            "${backlog.size} recipe${if (backlog.size == 1) "" else "s"} guardada${if (backlog.size == 1) "" else "s"}"
+                            "${backlog.size} recipe${if (backlog.size == 1) "" else "s"} en esta colección"
                         },
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                }
+            }
+            item {
+                CollectionChips(
+                    collections = collections,
+                    onSelect = { viewModel.selectCollection(it.id) },
+                    onCreate = { showCreate = true },
+                    onLongPress = { collectionMenu = it },
+                )
+            }
+            if (backlog.isEmpty()) {
+                item {
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(top = 40.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            "Esta colección está vacía.\nAñade recipes desde «…» o crea una nueva.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = InkSoft,
+                        )
+                    }
                 }
             }
             items(backlog, key = { it.id }) { recipe ->
@@ -111,12 +167,13 @@ fun BacklogScreen(viewModel: FujiViewModel) {
                     onOpen = { viewModel.push(Screen.Editor(recipe.id, null)) },
                     onSend = { sendRecipe = recipe },
                     onDuplicate = { viewModel.duplicateRecipe(recipe.id) },
+                    onAddToCollection = { addTo = recipe },
                     onDelete = { viewModel.deleteRecipe(recipe.id) },
                 )
             }
         }
         FloatingActionButton(
-            onClick = { viewModel.push(Screen.Editor(null, null)) },
+            onClick = { showCreate = true },
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(24.dp)
@@ -127,6 +184,80 @@ fun BacklogScreen(viewModel: FujiViewModel) {
         ) {
             Icon(Icons.Filled.Add, contentDescription = "Nueva recipe", modifier = Modifier.size(26.dp))
         }
+    }
+
+    // Create / rename collection dialog.
+    when {
+        showCreate -> CollectionNameDialog(
+            title = "Nueva colección",
+            initialName = "",
+            onConfirm = { viewModel.createCollection(it, pickCollectionColor(collections.size)) },
+            onDismiss = { showCreate = false },
+        )
+        renaming != null -> CollectionNameDialog(
+            title = "Renombrar colección",
+            initialName = renaming!!.name,
+            onConfirm = { viewModel.renameCollection(renaming!!.id, it) },
+            onDismiss = { renaming = null },
+        )
+    }
+
+    // Collection overflow menu (rename / delete).
+    collectionMenu?.let { collection ->
+        AlertDialog(
+            onDismissRequest = { collectionMenu = null },
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(Radius.card),
+            title = { Text(collection.name, style = MaterialTheme.typography.titleLarge) },
+            text = {
+                Column {
+                    if (!collection.isDefault) {
+                        TextButton(
+                            onClick = {
+                                collectionMenu = null
+                                renaming = collection
+                            },
+                        ) {
+                            Icon(Icons.Filled.Edit, null, Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Renombrar")
+                        }
+                    }
+                    TextButton(
+                        onClick = {
+                            collectionMenu = null
+                            viewModel.deleteCollection(collection.id)
+                        },
+                        enabled = !collection.isDefault,
+                    ) {
+                        Icon(Icons.Filled.Delete, null, Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            if (collection.isDefault) "«Todas» no se puede eliminar"
+                            else "Eliminar colección"
+                        )
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { collectionMenu = null }) { Text("Cerrar") }
+            },
+        )
+    }
+
+    // Add-to-collection picker.
+    addTo?.let { recipe ->
+        AddToCollectionDialog(
+            recipe = recipe,
+            collections = collections,
+            currentIds = emptyList(),
+            onPick = { collectionId ->
+                viewModel.addToCollection(recipe.id, collectionId)
+                addTo = null
+            },
+            onDismiss = { addTo = null },
+        )
     }
 
     sendRecipe?.let { recipe ->
@@ -143,6 +274,161 @@ fun BacklogScreen(viewModel: FujiViewModel) {
     }
 }
 
+private fun pickCollectionColor(index: Int): Long =
+    collectionTints[index % collectionTints.size]
+
+@Composable
+private fun CollectionChips(
+    collections: List<CollectionUi>,
+    onSelect: (CollectionUi) -> Unit,
+    onCreate: () -> Unit,
+    onLongPress: (CollectionUi) -> Unit,
+) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        collections.forEachIndexed { index, collection ->
+            val tint = Color(collection.colorHex)
+            val deep = Color(collectionDeepTints[index % collectionDeepTints.size])
+            Box(
+                Modifier
+                    .clip(RoundedCornerShape(Radius.pill))
+                    .background(tint.copy(alpha = 0.7f))
+                    .clickable { onSelect(collection) }
+                    .padding(horizontal = 14.dp, vertical = 9.dp),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Filled.Folder,
+                        null,
+                        Modifier.size(14.dp),
+                        tint = deep,
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = "${collection.name} (${collection.count})",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = Ink,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+            }
+        }
+        Box(
+            Modifier
+                .clip(RoundedCornerShape(Radius.pill))
+                .background(Peach.copy(alpha = 0.6f))
+                .clickable(onClick = onCreate)
+                .padding(horizontal = 12.dp, vertical = 9.dp),
+        ) {
+            Icon(
+                Icons.Filled.CreateNewFolder,
+                null,
+                Modifier.size(16.dp),
+                tint = PeachDeep,
+            )
+        }
+    }
+}
+
+@Composable
+private fun CollectionNameDialog(
+    title: String,
+    initialName: String,
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var name by remember { mutableStateOf(initialName) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(Radius.card),
+        title = { Text(title, style = MaterialTheme.typography.titleLarge) },
+        text = {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text("Nombre") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(Radius.control),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = Surface,
+                    unfocusedContainerColor = Surface,
+                    focusedBorderColor = PeachDeep.copy(alpha = 0.6f),
+                    unfocusedBorderColor = Color(0xFFEFEBE4),
+                ),
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(name.trim()); onDismiss() },
+                enabled = name.isNotBlank(),
+            ) {
+                Text("Crear", color = PeachDeep, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancelar") }
+        },
+    )
+}
+
+@Composable
+private fun AddToCollectionDialog(
+    recipe: RecipeModel,
+    collections: List<CollectionUi>,
+    currentIds: List<Long>,
+    onPick: (Long) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(Radius.card),
+        title = { Text("Añadir a colección", style = MaterialTheme.typography.titleLarge) },
+        text = {
+            Column {
+                Text(
+                    "«${recipe.name}»",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = InkSoft,
+                )
+                Spacer(Modifier.height(12.dp))
+                collections.filter { !it.isDefault }.forEach { collection ->
+                    val tint = Color(collection.colorHex)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(tint.copy(alpha = 0.55f))
+                            .clickable { onPick(collection.id) }
+                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(Icons.Filled.Folder, null, Modifier.size(16.dp), tint = Ink.copy(alpha = 0.6f))
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = "${collection.name} (${collection.count})",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Ink,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp))
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancelar") }
+        },
+    )
+}
+
 @Composable
 private fun BacklogCard(
     recipe: RecipeModel,
@@ -151,21 +437,15 @@ private fun BacklogCard(
     onOpen: () -> Unit,
     onSend: () -> Unit,
     onDuplicate: () -> Unit,
+    onAddToCollection: () -> Unit,
     onDelete: () -> Unit,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
-    val interaction = remember { MutableInteractionSource() }
-    val scale by animateFloatAsState(
-        targetValue = 1f,
-        animationSpec = tween(120),
-        label = "backlogScale",
-    )
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .scale(scale)
-            .clip(androidx.compose.foundation.shape.RoundedCornerShape(Radius.card))
-            .clickable(interactionSource = interaction, indication = null, onClick = onOpen),
+            .clip(RoundedCornerShape(Radius.card))
+            .clickable(onClick = onOpen),
         colors = CardDefaults.cardColors(containerColor = Surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
@@ -215,6 +495,14 @@ private fun BacklogCard(
                             },
                         )
                     }
+                    DropdownMenuItem(
+                        text = { Text("Añadir a colección…") },
+                        leadingIcon = { Icon(Icons.Filled.CreateNewFolder, null) },
+                        onClick = {
+                            menuOpen = false
+                            onAddToCollection()
+                        },
+                    )
                     DropdownMenuItem(
                         text = { Text("Duplicar") },
                         leadingIcon = { Icon(Icons.Filled.ContentCopy, null) },

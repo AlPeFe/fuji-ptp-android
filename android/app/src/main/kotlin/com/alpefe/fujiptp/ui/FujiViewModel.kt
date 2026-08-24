@@ -16,6 +16,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -23,6 +25,15 @@ import kotlinx.coroutines.withContext
 
 /** One of the 7 camera slots with its currently assigned recipe. */
 data class SlotUi(val index: Int, val recipe: RecipeModel?)
+
+/** A collection shown in the library. */
+data class CollectionUi(
+    val id: Long,
+    val name: String,
+    val colorHex: Long,
+    val isDefault: Boolean,
+    val count: Int,
+)
 
 /** Screens of the app. */
 sealed interface Screen {
@@ -47,6 +58,28 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
             (1..7).map { i -> SlotUi(i, byIndex[i]?.recipe?.toModel()) }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), (1..7).map { SlotUi(it, null) })
+
+    val collections: StateFlow<List<CollectionUi>> = repo.collections
+        .map { list -> list.map { CollectionUi(it.id, it.name, it.colorHex, it.isDefault, it.count) } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** Currently selected collection in the library. */
+    private val selectedCollectionId = MutableStateFlow<Long?>(null)
+
+    /** Recipes visible in the library for the currently selected collection. */
+    val libraryRecipes: StateFlow<List<RecipeModel>> =
+        combine(repo.collections, selectedCollectionId) { collections, selected ->
+            val collection = collections.firstOrNull { it.id == selected }
+                ?: collections.firstOrNull()
+            collection?.id
+        }
+            .flatMapLatest { collectionId ->
+                if (collectionId == null) flowOf(emptyList())
+                else if (collections.value.firstOrNull { it.id == collectionId }?.isDefault == true) repo.backlog
+                else repo.recipesInCollection(collectionId)
+            }
+            .map { list -> list.map { it.toModel() } }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // --- transient UI state ------------------------------------------------
     val connected = MutableStateFlow(false)
@@ -297,6 +330,53 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             withContext(Dispatchers.IO) { repo.clearSlot(slot) }
             notifyUser("C$slot vaciado")
+        }
+    }
+
+    // --- collections -----------------------------------------------------------
+
+    /** Selects a collection in the library (null = default selection). */
+    fun selectCollection(id: Long) {
+        selectedCollectionId.value = id
+    }
+
+    fun createCollection(name: String, colorHex: Long) {
+        viewModelScope.launch {
+            val id = withContext(Dispatchers.IO) { repo.createCollection(name, colorHex) }
+            if (id > 0) {
+                selectedCollectionId.value = id
+                notifyUser("Colección «$name» creada")
+            }
+        }
+    }
+
+    fun renameCollection(id: Long, name: String) {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { repo.renameCollection(id, name) }
+        }
+    }
+
+    fun deleteCollection(id: Long) {
+        viewModelScope.launch {
+            val deleted = withContext(Dispatchers.IO) { repo.deleteCollection(id) }
+            if (deleted) {
+                if (selectedCollectionId.value == id) selectedCollectionId.value = null
+                notifyUser("Colección eliminada")
+            } else {
+                notifyUser("No se puede eliminar: debe quedar al menos una colección")
+            }
+        }
+    }
+
+    fun addToCollection(recipeId: Long, collectionId: Long) {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { repo.addRecipeToCollection(recipeId, collectionId) }
+        }
+    }
+
+    fun removeFromCollection(recipeId: Long, collectionId: Long) {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { repo.removeRecipeFromCollection(recipeId, collectionId) }
         }
     }
 

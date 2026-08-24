@@ -1,6 +1,9 @@
 package com.alpefe.fujiptp.data
 
+import androidx.room.Embedded
 import androidx.room.Entity
+import androidx.room.ForeignKey
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
 @Entity(tableName = "recipes")
@@ -101,5 +104,59 @@ data class SlotEntity(
 /** Slot joined with its assigned recipe (recipe may be null = empty slot). */
 data class SlotWithRecipe(
     val slotIndex: Int,
-    @androidx.room.Embedded val recipe: RecipeEntity?,
+    @Embedded val recipe: RecipeEntity?,
+)
+
+/**
+ * A collection of recipes in the library. The app always keeps at least one
+ * collection; the default "Todas" collection cannot be deleted.
+ */
+@Entity(tableName = "collections")
+data class CollectionEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0L,
+    val name: String,
+    val colorHex: Long,
+    val isDefault: Boolean = false,
+    val createdAt: Long,
+    val updatedAt: Long,
+)
+
+/** Many-to-many join between recipes and collections. */
+@Entity(
+    tableName = "recipe_collections",
+    primaryKeys = ["recipeId", "collectionId"],
+    foreignKeys = [
+        ForeignKey(
+            entity = RecipeEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["recipeId"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+        ForeignKey(
+            entity = CollectionEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["collectionId"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
+    indices = [Index("collectionId")],
+)
+data class RecipeCollectionEntity(
+    val recipeId: Long,
+    val collectionId: Long,
+)
+
+/** Collection joined with its recipe count. */
+data class CollectionWithCount(
+    val id: Long,
+    val name: String,
+    val colorHex: Long,
+    val isDefault: Boolean,
+    val count: Int,
+)
+
+/** Recipe joined with its collection ids. */
+data class RecipeWithCollections(
+    @Embedded val recipe: RecipeEntity,
+    val collectionIds: List<Long>,
 )
