@@ -12,6 +12,7 @@ import com.alpefe.fujiptp.data.RecipeModel
 import com.alpefe.fujiptp.data.RecipeRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -45,7 +46,14 @@ sealed interface Screen {
     data object Active : Screen
     data object Backlog : Screen
     data object Discover : Screen
-    data class Editor(val recipeId: Long?, val fromSlot: Int?, val assignOnSave: Int? = null) : Screen
+    data class Collection(val collectionId: Long, val name: String) : Screen
+    data class DiscoverCollection(val id: String, val name: String) : Screen
+    data class Editor(
+        val recipeId: Long?,
+        val fromSlot: Int?,
+        val assignOnSave: Int? = null,
+        val collectionId: Long? = null,
+    ) : Screen
 }
 
 class FujiViewModel(app: Application) : AndroidViewModel(app) {
@@ -95,6 +103,11 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
             }
             .map { list -> list.map { it.toModel() } }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** Recipes of a specific collection (used inside CollectionScreen). */
+    fun recipesInCollectionFlow(collectionId: Long): Flow<List<RecipeModel>> =
+        repo.recipesInCollection(collectionId)
+            .map { list -> list.map { it.toModel() } }
 
     // --- transient UI state ------------------------------------------------
     val connected = MutableStateFlow(false)
@@ -335,10 +348,10 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
 
     // --- backlog CRUD ---------------------------------------------------------
 
-    fun saveRecipe(recipe: RecipeModel, assignOnSave: Int?) {
+    fun saveRecipe(recipe: RecipeModel, assignOnSave: Int?, collectionId: Long?) {
         viewModelScope.launch {
             withBusy {
-                val id = withContext(Dispatchers.IO) { repo.save(recipe) }
+                val id = withContext(Dispatchers.IO) { repo.save(recipe, collectionId) }
                 if (assignOnSave != null) {
                     withContext(Dispatchers.IO) { repo.assignToSlot(assignOnSave, id) }
                 }
@@ -431,6 +444,20 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
     fun removeFromCollection(recipeId: Long, collectionId: Long) {
         viewModelScope.launch {
             withContext(Dispatchers.IO) { repo.removeRecipeFromCollection(recipeId, collectionId) }
+        }
+    }
+
+    /** Imports a Discover recipe into one of the user's collections. */
+    fun importDiscoverRecipe(name: String, filmSimulation: String, collectionId: Long) {
+        viewModelScope.launch {
+            val film = com.alpefe.fujiptp.data.FilmSimulation.entries
+                .firstOrNull { it.name == filmSimulation }
+                ?: com.alpefe.fujiptp.data.FilmSimulation.ClassicChrome
+            val recipe = RecipeModel(name = name, filmSimulation = film)
+            val id = withContext(Dispatchers.IO) { repo.save(recipe, collectionId) }
+            if (id > 0) {
+                notifyUser("«$name» importada a tu colección")
+            }
         }
     }
 

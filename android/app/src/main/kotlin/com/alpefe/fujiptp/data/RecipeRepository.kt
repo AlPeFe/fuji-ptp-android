@@ -14,12 +14,13 @@ class RecipeRepository(private val dao: RecipeDao) {
 
     // --- recipes ------------------------------------------------------------
 
-    suspend fun save(recipe: RecipeModel): Long {
+    suspend fun save(recipe: RecipeModel, collectionId: Long? = null): Long {
         val now = System.currentTimeMillis()
         val id = dao.upsert(RecipeEntity.fromModel(recipe, now))
-        // New recipes land in the default collection.
-        if (recipe.id == 0L) {
-            dao.getDefaultCollectionId()?.let { dao.addRecipeToCollection(id, it) }
+        // New recipes land in the given collection, or the default one.
+        val target = collectionId ?: dao.getDefaultCollectionId()
+        if (target != null) {
+            dao.addRecipeToCollection(id, target)
         }
         return id
     }
@@ -97,6 +98,10 @@ class RecipeRepository(private val dao: RecipeDao) {
         )
     }
 
+    /**
+     * Renames a collection. The default collection can also be renamed;
+     * only deletion is forbidden for it.
+     */
     suspend fun renameCollection(id: Long, name: String) {
         val collection = dao.getCollection(id) ?: return
         if (name.isNotBlank() && name != collection.name) {

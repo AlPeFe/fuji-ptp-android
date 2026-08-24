@@ -40,6 +40,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.alpefe.fujiptp.ui.editor.EditorScreen
 import com.alpefe.fujiptp.ui.home.HomeScreen
 import com.alpefe.fujiptp.ui.home.backlog.BacklogScreen
+import com.alpefe.fujiptp.ui.home.backlog.CollectionScreen
+import com.alpefe.fujiptp.ui.home.discover.DiscoverCollectionScreen
 import com.alpefe.fujiptp.ui.home.discover.DiscoverScreen
 import com.alpefe.fujiptp.ui.theme.Canvas
 import com.alpefe.fujiptp.ui.theme.Ink
@@ -70,6 +72,25 @@ fun FujiApp(viewModel: FujiViewModel = viewModel()) {
                 recipeId = s.recipeId,
                 fromSlot = s.fromSlot,
                 assignOnSave = s.assignOnSave,
+                collectionId = s.collectionId,
+                onBack = { viewModel.pop() },
+            )
+        }
+        is Screen.Collection -> {
+            BackHandler { viewModel.pop() }
+            CollectionScreen(
+                viewModel = viewModel,
+                collectionId = s.collectionId,
+                collectionName = s.name,
+                onBack = { viewModel.pop() },
+            )
+        }
+        is Screen.DiscoverCollection -> {
+            BackHandler { viewModel.pop() }
+            DiscoverCollectionScreen(
+                viewModel = viewModel,
+                collectionId = s.id,
+                collectionName = s.name,
                 onBack = { viewModel.pop() },
             )
         }
@@ -165,7 +186,7 @@ private fun MainScaffold(
                 when (tab) {
                     is Screen.Active -> HomeScreen(viewModel)
                     is Screen.Backlog -> BacklogScreen(viewModel)
-                    else -> DiscoverScreen()
+                    else -> DiscoverScreen(viewModel)
                 }
             }
             if (busy) {

@@ -95,6 +95,7 @@ fun EditorScreen(
     recipeId: Long?,
     fromSlot: Int?,
     assignOnSave: Int?,
+    collectionId: Long?,
     onBack: () -> Unit,
 ) {
     val slots by viewModel.slots.collectAsStateWithLifecycle()
@@ -141,7 +142,7 @@ fun EditorScreen(
                 TextButton(
                     onClick = {
                         dirty = false
-                        viewModel.saveRecipe(current, assignOnSave)
+                        viewModel.saveRecipe(current, assignOnSave, collectionId)
                     },
                     enabled = !busy,
                 ) {
