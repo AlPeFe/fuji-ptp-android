@@ -264,6 +264,41 @@ object DiscoverData {
                 ),
             ),
         ),
+        // --- Instagram (real, from reel) -------------------------------------
+        DiscoverCollection(
+            id = "instagram",
+            name = "Instagram",
+            tagline = "Recipes virales de IG",
+            logo = "📱",
+            colorHex = 0xFF55303C,
+            source = "https://www.instagram.com/reel/Da1zXNRtm1U/?utm_source=ig_web_button_share_sheet",
+            recipes = listOf(
+                r(
+                    "Early Summer",
+                    "ClassicNegative",
+                    "WB: Shade (R -3, B +3) · DR400 · Grain: Strong Large · CC: Strong · FX Blue: Weak · Color: +2 · Sharpness: 0 · H -1.5 / S -1.0 · NR: -4 · Clarity: 0",
+                    "https://www.instagram.com/reel/Da1zXNRtm1U/?utm_source=ig_web_button_share_sheet",
+                ),
+                r(
+                    "Clockwise Negative",
+                    "ClassicNegative",
+                    "WB: Auto (R +1, B -3) · DR400 · Grain: Weak/Strong Small · CC: Strong · FX Blue: Weak · Color: +4 · Sharpness: -2 · H -1.0 / S -1.5 · NR: -4 · Clarity: -3",
+                    "https://www.instagram.com/reel/Da1zXNRtm1U/?utm_source=ig_web_button_share_sheet",
+                ),
+                r(
+                    "Portra 400",
+                    "ClassicChrome",
+                    "WB: Auto (R +2, B -4) · DR400 · Grain: Strong Small/Large · CC: Strong · FX Blue: Off · Color: +2 · Sharpness: -2 · H -1.0 / S -1.0 · NR: -4 · Clarity: -2",
+                    "https://www.instagram.com/reel/Da1zXNRtm1U/?utm_source=ig_web_button_share_sheet",
+                ),
+                r(
+                    "After Rain",
+                    "ClassicNegative",
+                    "WB: 5200K (R +3, B -4) · DR400 · Grain: Strong Large · CC: Strong · FX Blue: Strong · Color: +4 · Sharpness: -2 · H -0.5 / S +2.0 · NR: -4 · Clarity: 0",
+                    "https://www.instagram.com/reel/Da1zXNRtm1U/?utm_source=ig_web_button_share_sheet",
+                ),
+            ),
+        ),
         // --- Analog Dreams (placeholder) ------------------------------------
         DiscoverCollection(
             id = "dreams",
