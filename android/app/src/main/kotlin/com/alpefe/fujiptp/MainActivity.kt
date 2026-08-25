@@ -54,9 +54,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Dark window background: prevents the white flash while the
-        // Compose content is drawn / during screen transitions.
-        window.decorView.setBackgroundColor(android.graphics.Color.parseColor("#171310"))
+        // Window background matches the app canvas: prevents the white flash
+        // while the Compose content is drawn / during screen transitions.
+        window.decorView.setBackgroundColor(android.graphics.Color.parseColor("#F7F4F0"))
 
         // Fail fast if the Rust bridge library is missing on this ABI.
         runCatching { FujiNative.nativeVersion() }

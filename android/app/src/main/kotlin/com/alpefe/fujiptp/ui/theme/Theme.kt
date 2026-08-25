@@ -2,7 +2,7 @@ package com.alpefe.fujiptp.ui.theme
 
 import android.app.Activity
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
@@ -10,19 +10,18 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-// Dark, warm, pastel design. The app renders in dark mode with muted pastel
-// accents over a warm espresso background.
-private val DarkColors = darkColorScheme(
+// Light, warm, pastel design — broken white + dusty pink + sage green.
+private val LightColors = lightColorScheme(
     primary = PeachDeep,
-    onPrimary = Color(0xFF3A1D0F),
+    onPrimary = Color.White,
     primaryContainer = Peach,
     onPrimaryContainer = Ink,
     secondary = LavenderDeep,
-    onSecondary = Color(0xFF241B3D),
+    onSecondary = Color.White,
     secondaryContainer = Lavender,
     onSecondaryContainer = Ink,
-    tertiary = SoftBlueDeep,
-    tertiaryContainer = SoftBlue,
+    tertiary = PastelGreenDeep,
+    tertiaryContainer = PastelGreen,
     onTertiaryContainer = Ink,
     background = Canvas,
     onBackground = Ink,
@@ -33,7 +32,7 @@ private val DarkColors = darkColorScheme(
     outline = Hairline,
     outlineVariant = Hairline,
     error = Danger,
-    onError = Color(0xFF3A1414),
+    onError = Color.White,
     errorContainer = DustyPink,
     onErrorContainer = Ink,
 )
@@ -45,11 +44,11 @@ fun FujiRecipesTheme(content: @Composable () -> Unit) {
         SideEffect {
             val window = (view.context as Activity).window
             window.statusBarColor = Canvas.toArgb()
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = true
         }
     }
     MaterialTheme(
-        colorScheme = DarkColors,
+        colorScheme = LightColors,
         typography = Typography,
         shapes = Shapes,
         content = content,

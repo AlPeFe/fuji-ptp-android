@@ -171,7 +171,7 @@ fun DiscoverRecipeDetailScreen(
                     shape = RoundedCornerShape(Radius.control),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = PeachDeep,
-                        contentColor = Color(0xFF3A1D0F),
+                        contentColor = Color.White,
                     ),
                 ) {
                     Icon(Icons.Filled.Download, null, Modifier.size(16.dp))

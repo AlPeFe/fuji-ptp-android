@@ -292,7 +292,7 @@ private fun CollectionNameDialog(
                     focusedContainerColor = Surface,
                     unfocusedContainerColor = Surface,
                     focusedBorderColor = PeachDeep.copy(alpha = 0.6f),
-                    unfocusedBorderColor = Color(0xFF362F28),
+                    unfocusedBorderColor = Color(0xFFEDE7E0),
                 ),
             )
         },

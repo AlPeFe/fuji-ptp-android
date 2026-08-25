@@ -296,7 +296,7 @@ fun CollectionScreen(
                         focusedContainerColor = Surface,
                         unfocusedContainerColor = Surface,
                         focusedBorderColor = PeachDeep.copy(alpha = 0.6f),
-                        unfocusedBorderColor = Color(0xFF362F28),
+                        unfocusedBorderColor = Color(0xFFEDE7E0),
                     ),
                 )
                 Spacer(Modifier.height(8.dp))
@@ -452,7 +452,7 @@ private fun CollectionRecipeCard(
                     onCheckedChange = { onToggleSelect() },
                     colors = CheckboxDefaults.colors(
                         checkedColor = PeachDeep,
-                        checkmarkColor = Color(0xFF171310),
+                        checkmarkColor = Color(0xFFFFFFFF),
                         uncheckedColor = InkSoft,
                     ),
                 )

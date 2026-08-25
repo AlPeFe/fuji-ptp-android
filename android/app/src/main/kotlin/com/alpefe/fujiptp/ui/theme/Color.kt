@@ -3,43 +3,43 @@ package com.alpefe.fujiptp.ui.theme
 import androidx.compose.ui.graphics.Color
 
 // ---------------------------------------------------------------------------
-// Design tokens — "playful modern minimalism", dark warm palette.
-// The app renders in dark mode with muted pastel accents over a warm
-// espresso background, keeping the same playful card language.
+// Design tokens — "playful modern minimalism", pink pastel + sage green.
+// Warm off-white (broken white) background, dusty pink as the primary
+// accent, and a soft sage/mint green as the complementary tone.
 // ---------------------------------------------------------------------------
 
 // Backgrounds / neutrals
-val Canvas = Color(0xFF171310)        // warm espresso background
-val Surface = Color(0xFF241E19)       // cards
-val SurfaceSoft = Color(0xFF2E2721)   // soft neutral wells
-val Ink = Color(0xFFF2EBE2)           // primary text (warm off-white)
-val InkSoft = Color(0xFFB3A89A)       // secondary text
-val InkFaint = Color(0xFF7D7368)      // tertiary / hints
-val Hairline = Color(0xFF362F28)      // subtle separators
+val Canvas = Color(0xFFF7F4F0)        // warm broken-white background
+val Surface = Color(0xFFFFFCF8)       // cards (near-white)
+val SurfaceSoft = Color(0xFFF1ECE6)   // soft neutral wells
+val Ink = Color(0xFF3D3834)           // primary text (warm dark gray)
+val InkSoft = Color(0xFF8C857B)       // secondary text
+val InkFaint = Color(0xFFB8B1A6)      // tertiary / hints
+val Hairline = Color(0xFFEDE7E0)      // subtle separators
 
-// Pastel accents — muted for dark backgrounds, one hue per section
-val Lavender = Color(0xFF463A66)
-val LavenderDeep = Color(0xFFA99BE8)
-val SoftBlue = Color(0xFF35445C)
-val SoftBlueDeep = Color(0xFF8FB4E8)
-val PastelGreen = Color(0xFF35453A)
-val PastelGreenDeep = Color(0xFF8FC49C)
-val Peach = Color(0xFF5A3826)
-val PeachDeep = Color(0xFFF0A878)
-val SoftYellow = Color(0xFF4E442C)
-val SoftYellowDeep = Color(0xFFE0BC6E)
-val DustyPink = Color(0xFF55303C)
-val DustyPinkDeep = Color(0xFFE89BB1)
+// Pastel accents — pink family (primary) + sage green (complementary)
+val Lavender = Color(0xFFF3E8F5)      // soft lilac-pink
+val LavenderDeep = Color(0xFFB48AC9)
+val SoftBlue = Color(0xFFE8EEF7)      // cool tint for camera card
+val SoftBlueDeep = Color(0xFF8FA8C9)
+val PastelGreen = Color(0xFFE4F0E5)   // sage / mint (complementary)
+val PastelGreenDeep = Color(0xFF7FAF8B)
+val Peach = Color(0xFFF9E0E4)         // dusty pink (primary accent)
+val PeachDeep = Color(0xFFD982A0)     // deeper pink
+val SoftYellow = Color(0xFFF7EDD9)    // warm cream (WB section)
+val SoftYellowDeep = Color(0xFFC9A24B)
+val DustyPink = Color(0xFFF7E3E8)     // pink tint for highlights
+val DustyPinkDeep = Color(0xFFD98BA0)
 
-// Film simulation accent colors (chips) — muted dark versions
-val FilmVelvia = Color(0xFF5E3A33)
-val FilmClassicChrome = Color(0xFF57492E)
-val FilmClassicNeg = Color(0xFF553F30)
-val FilmMono = Color(0xFF3A3835)
-val FilmEterna = Color(0xFF33424E)
-val FilmProvia = Color(0xFF3C4A38)
+// Film simulation accent colors (chips) — soft pastel versions
+val FilmVelvia = Color(0xFFFFD9D0)
+val FilmClassicChrome = Color(0xFFF7E8C9)
+val FilmClassicNeg = Color(0xFFF4DDC8)
+val FilmMono = Color(0xFFE8E5E1)
+val FilmEterna = Color(0xFFD8E4EE)
+val FilmProvia = Color(0xFFE2EFDC)
 
 // Functional
-val Success = Color(0xFF8FC49C)
+val Success = Color(0xFF7FAF8B)
 val Danger = Color(0xFFE58A8A)
-val OnPastel = Ink // text drawn on pastel chips is always warm off-white
+val OnPastel = Ink // text drawn on pastel chips is always warm dark
