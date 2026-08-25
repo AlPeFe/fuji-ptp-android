@@ -77,14 +77,8 @@ fun DiscoverScreen(viewModel: FujiViewModel) {
             }
         }
         items(collections, key = { it.id }) { collection ->
-            // Organic, uneven masonry feel: offset each card visually so the
-            // two columns never line up.
-            val index = collections.indexOf(collection)
-            val offsets = listOf(0.dp, 36.dp, 14.dp, 48.dp)
-            val offset = offsets[index % offsets.size]
             DiscoverCard(
                 collection = collection,
-                modifier = Modifier.offset(y = offset),
                 onClick = {
                     viewModel.push(Screen.DiscoverCollection(collection.id, collection.name))
                 },

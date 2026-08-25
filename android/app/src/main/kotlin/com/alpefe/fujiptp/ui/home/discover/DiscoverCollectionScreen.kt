@@ -92,9 +92,10 @@ fun DiscoverCollectionScreen(
     var importTarget by remember { mutableStateOf<DiscoverRecipe?>(null) }
     var importBatch by remember { mutableStateOf<Boolean>(false) }
     var selection by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var selectionMode by remember { mutableStateOf(false) }
     val uriHandler = LocalUriHandler.current
 
-    val selecting = selection.isNotEmpty()
+    val selecting = selectionMode || selection.isNotEmpty()
 
     Box(Modifier.fillMaxSize().background(Canvas)) {
         LazyColumn(
@@ -194,8 +195,11 @@ fun DiscoverCollectionScreen(
                 ) {
                     TextButton(
                         onClick = {
-                            if (selecting) selection = emptySet()
-                            else selection = collection.recipes.map { it.name }.toSet()
+                            // Toggle selection mode. Entering it never
+                            // pre-selects anything (import-all is the
+                            // dedicated button for that).
+                            selectionMode = !selectionMode
+                            if (!selectionMode) selection = emptySet()
                         },
                     ) {
                         Icon(
@@ -326,6 +330,7 @@ fun DiscoverCollectionScreen(
                                     importBatch = false
                                     importTarget = null
                                     selection = emptySet()
+                                    selectionMode = false
                                 }
                                 .padding(horizontal = 14.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
