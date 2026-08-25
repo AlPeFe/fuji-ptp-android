@@ -294,6 +294,7 @@ object DiscoverData {
             recipes = listOf(
                 r("Reggie's Superia", "ClassicNegative", "Superia de Reggie, vibrante y versátil", "https://fujixweekly.com/2026/03/12/reggies-superia-a-fujifilm-recipe-for-x-trans-iv-v-cameras/"),
                 r("Reggie's Portra", "ClassicChrome", "Classic Chrome · DR-Auto · H -1 / S -1 · Color +2 · NR -4 · Sharp -2 · Grain Weak Small · CC Strong · FX Blue Weak · WB Auto +2R/-4B", "https://fujixweekly.com/fujifilm-x-trans-v-recipes/"),
+                r("Reggie's B&W", "AcrosRed", "Film Simulation: Acros + R Filter · Grain Effect: Weak, Small · WB: Auto · Dynamic Range: Auto · DR Priority: Off · Tone Curve: H +2, S +2 · Sharpness: -1 · Noise Reduction: -3 · Clarity: 0", "https://fujixweekly.com/fujifilm-x-trans-v-recipes/"),
             ),
         ),
         // --- Black and White (Kevin Mullins, real) --------------------------
