@@ -170,17 +170,21 @@ object DiscoverData {
                 r("Reggie's Portra", "ClassicChrome", "Classic Chrome · DR-Auto · H -1 / S -1 · Color +2 · NR -4 · Sharp -2 · Grain Weak Small · CC Strong · FX Blue Weak · WB Auto +2R/-4B", "https://fujixweekly.com/fujifilm-x-trans-v-recipes/"),
             ),
         ),
-        // --- r/fujix (placeholder until real collection is provided) --------
+        // --- REDDIT (real) ---------------------------------------------------
         DiscoverCollection(
             id = "reddit",
-            name = "r/fujix",
-            tagline = "Lo mejor de Reddit",
+            name = "REDDIT",
+            tagline = "Compartida por la comunidad",
             logo = "💬",
             colorHex = 0xFF35453A,
             source = "https://www.reddit.com/r/fujix/",
             recipes = listOf(
-                r("Cinestill 800T", "Eterna", "Tungsteno, neones y noches urbanas", "https://www.reddit.com/r/fujix/"),
-                r("Agfa Vista 200", "Astia", "Verdes frescos, piel suave", "https://www.reddit.com/r/fujix/"),
+                r(
+                    "LEICA X",
+                    "ClassicChrome",
+                    "Film Sim: Classic Chrome · Grain: Off · Chrome Effect: Strong · FX Blue: Strong · WB: Auto (R +1, B -2) · DRange: Auto · DRange Prio: Off · Curve: H -1, S 0 · Color: +4 · Sharpness: 0 · High ISO NR: -4 · Clarity: 0",
+                    "https://www.reddit.com/r/fujix/",
+                ),
             ),
         ),
         // --- Analog Dreams (placeholder) ------------------------------------
