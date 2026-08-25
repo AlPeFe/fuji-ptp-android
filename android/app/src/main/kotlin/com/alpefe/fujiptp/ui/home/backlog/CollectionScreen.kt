@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -104,6 +105,7 @@ fun CollectionScreen(
 
     var sendRecipe by remember { mutableStateOf<RecipeModel?>(null) }
     var addTo by remember { mutableStateOf<RecipeModel?>(null) }
+    var assignToSlot by remember { mutableStateOf<RecipeModel?>(null) }
     var showRename by remember { mutableStateOf(false) }
     var confirmDeleteCollection by remember { mutableStateOf(false) }
     var confirmDeleteRecipes by remember { mutableStateOf(false) }
@@ -210,6 +212,7 @@ fun CollectionScreen(
                     },
                     onOpen = { viewModel.push(Screen.Editor(recipe.id, null)) },
                     onSend = { sendRecipe = recipe },
+                    onAssignSlot = { assignToSlot = recipe },
                     onDuplicate = { viewModel.duplicateRecipe(recipe.id) },
                     onAddToCollection = { addTo = recipe },
                     onDelete = { viewModel.deleteRecipe(recipe.id) },
@@ -405,10 +408,23 @@ fun CollectionScreen(
             slots = slots,
             busy = busy,
             onPick = { slot ->
-                viewModel.sendRecipeToSlot(recipe.id, slot)
+                viewModel.sendToSlot(slot, recipe)
                 sendRecipe = null
             },
             onDismiss = { sendRecipe = null },
+        )
+    }
+
+    assignToSlot?.let { recipe ->
+        SlotPickerDialog(
+            title = "Asignar «${recipe.name}» a…",
+            slots = slots,
+            busy = busy,
+            onPick = { slot ->
+                viewModel.assignToSlot(slot, recipe.id)
+                assignToSlot = null
+            },
+            onDismiss = { assignToSlot = null },
         )
     }
 }
@@ -424,6 +440,7 @@ private fun CollectionRecipeCard(
     onToggleSelect: () -> Unit,
     onOpen: () -> Unit,
     onSend: () -> Unit,
+    onAssignSlot: () -> Unit,
     onDuplicate: () -> Unit,
     onAddToCollection: () -> Unit,
     onDelete: () -> Unit,
@@ -501,6 +518,14 @@ private fun CollectionRecipeCard(
                                 },
                             )
                         }
+                        DropdownMenuItem(
+                            text = { Text("Asignar a slot…") },
+                            leadingIcon = { Icon(Icons.Filled.SwapHoriz, null) },
+                            onClick = {
+                                menuOpen = false
+                                onAssignSlot()
+                            },
+                        )
                         DropdownMenuItem(
                             text = { Text("Añadir a colección…") },
                             leadingIcon = { Icon(Icons.Filled.CreateNewFolder, null) },

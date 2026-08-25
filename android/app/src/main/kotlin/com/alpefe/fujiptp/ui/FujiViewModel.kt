@@ -47,7 +47,6 @@ sealed interface Screen {
     data object Backlog : Screen
     data object Discover : Screen
     data class Collection(val collectionId: Long, val name: String) : Screen
-    data object CameraRecipes : Screen
     data class DiscoverCollection(val id: String, val name: String) : Screen
     data class DiscoverRecipeDetail(val collectionId: String, val recipeId: String) : Screen
     data class Editor(
@@ -81,13 +80,22 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
         .map { it != null }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
-    /** The 7 slots are the user's own profile, independent of the camera. */
-    val slots: StateFlow<List<SlotUi>> = repo.slots
-        .map { rows ->
-            val byIndex = rows.associateBy { it.slotIndex }
-            (1..7).map { i -> SlotUi(i, byIndex[i]?.recipe?.toModel()) }
+    /**
+     * The 7 slots reflect the camera's loaded recipes when available (after
+     * connecting + reading); otherwise they show the user's own profile
+     * assignments. This way the profile always mirrors the camera without
+     * extra taps.
+     */
+    val slots: StateFlow<List<SlotUi>> =
+        combine(repo.slots, cameraRecipesInternal) { rows, cam ->
+            if (cam != null) {
+                cam.mapIndexed { index, recipe -> SlotUi(index + 1, recipe) }
+            } else {
+                val byIndex = rows.associateBy { it.slotIndex }
+                (1..7).map { i -> SlotUi(i, byIndex[i]?.recipe?.toModel()) }
+            }
         }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), (1..7).map { SlotUi(it, null) })
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), (1..7).map { SlotUi(it, null) })
 
     val collections: StateFlow<List<CollectionUi>> = repo.collections
         .map { list -> list.map { CollectionUi(it.id, it.name, it.colorHex, it.isDefault, it.count) } }

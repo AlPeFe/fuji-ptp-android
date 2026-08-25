@@ -87,10 +87,8 @@ fun HomeScreen(viewModel: FujiViewModel) {
     val devicePresent by viewModel.devicePresent.collectAsStateWithLifecycle()
     val cameraLabel by viewModel.cameraLabel.collectAsStateWithLifecycle()
     val busy by viewModel.busy.collectAsStateWithLifecycle()
-    val hasCameraRecipes by viewModel.hasCameraRecipes.collectAsStateWithLifecycle()
     val backlog by viewModel.backlog.collectAsStateWithLifecycle()
 
-    var assignTarget by remember { mutableStateOf<Int?>(null) }
     var sendRecipe by remember { mutableStateOf<RecipeModel?>(null) }
 
     LazyVerticalGrid(
@@ -121,11 +119,9 @@ fun HomeScreen(viewModel: FujiViewModel) {
                 devicePresent = devicePresent,
                 cameraLabel = cameraLabel,
                 busy = busy,
-                hasCameraRecipes = hasCameraRecipes,
                 onConnect = { viewModel.connectRequested() },
                 onDisconnect = { viewModel.disconnect() },
                 onRead = { viewModel.readFromCamera() },
-                onShowCamera = { viewModel.push(Screen.CameraRecipes) },
                 onSendAll = { viewModel.sendAllToCamera() },
             )
         }
@@ -150,21 +146,12 @@ fun HomeScreen(viewModel: FujiViewModel) {
                 connected = connected,
                 onOpen = { viewModel.push(Screen.Editor(slot.recipe?.id, slot.index)) },
                 onSend = { recipe -> viewModel.sendToSlot(slot.index, recipe) },
-                onAssign = { assignTarget = slot.index },
+                // Asignar desde la biblioteca: navega ahí (donde podrás elegir
+                // la recipe y asignarla a C1-C7 con la cámara conectada).
+                onAssign = { viewModel.push(Screen.Backlog) },
                 onClear = { viewModel.clearSlot(slot.index) },
             )
         }
-    }
-
-    assignTarget?.let { slot ->
-        AssignRecipeDialog(
-            backlog = backlog,
-            onPick = { recipe ->
-                viewModel.assignToSlot(slot, recipe.id)
-                assignTarget = null
-            },
-            onDismiss = { assignTarget = null },
-        )
     }
 
     sendRecipe?.let { recipe ->
@@ -187,11 +174,9 @@ private fun CameraCard(
     devicePresent: Boolean,
     cameraLabel: String?,
     busy: Boolean,
-    hasCameraRecipes: Boolean,
     onConnect: () -> Unit,
     onDisconnect: () -> Unit,
     onRead: () -> Unit,
-    onShowCamera: () -> Unit,
     onSendAll: () -> Unit,
 ) {
     val bg = when {
@@ -280,23 +265,6 @@ private fun CameraCard(
                             border = androidx.compose.foundation.BorderStroke(1.dp, Surface.copy(alpha = 0.9f)),
                         ) {
                             Text("Desconectar")
-                        }
-                    }
-                    if (hasCameraRecipes) {
-                        Spacer(Modifier.height(10.dp))
-                        FilledTonalButton(
-                            onClick = onShowCamera,
-                            enabled = !busy,
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(Radius.control),
-                            colors = ButtonDefaults.filledTonalButtonColors(
-                                containerColor = Surface,
-                                contentColor = Ink,
-                            ),
-                        ) {
-                            Icon(Icons.Filled.CameraAlt, null, Modifier.size(16.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text("Ver recipes en la cámara")
                         }
                     }
                     Spacer(Modifier.height(10.dp))
@@ -462,64 +430,3 @@ private fun SlotCard(
     }
 }
 
-@Composable
-private fun AssignRecipeDialog(
-    backlog: List<RecipeModel>,
-    onPick: (RecipeModel) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(Radius.card),
-        title = { Text("Asignar recipe", style = MaterialTheme.typography.titleLarge) },
-        text = {
-            if (backlog.isEmpty()) {
-                Text(
-                    "Aún no hay recipes en la biblioteca. Crea una con el botón «+».",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = InkSoft,
-                )
-            } else {
-                Column {
-                    Text(
-                        "Toca una recipe para asignarla:",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    androidx.compose.foundation.lazy.LazyColumn(Modifier.height(300.dp)) {
-                        lazyListItems(backlog) { recipe ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(16.dp))
-                                    .background(filmTint(recipe.filmSimulation).copy(alpha = 0.5f))
-                                    .clickable { onPick(recipe) }
-                                    .padding(horizontal = 14.dp, vertical = 12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Column(Modifier.weight(1f)) {
-                                    Text(
-                                        recipe.name.ifBlank { "Sin nombre" },
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.SemiBold,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
-                                    Spacer(Modifier.height(4.dp))
-                                    FilmSimulationChip(recipe.filmSimulation)
-                                }
-                            }
-                            Spacer(Modifier.height(8.dp))
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {},
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancelar") }
-        },
-    )
-}

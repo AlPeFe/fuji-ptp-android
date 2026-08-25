@@ -23,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -42,6 +43,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.alpefe.fujiptp.data.DiscoverData
@@ -127,6 +129,25 @@ fun DiscoverCollectionScreen(
                     style = MaterialTheme.typography.bodySmall,
                     color = InkSoft,
                 )
+                if (collection.source.isNotBlank()) {
+                    Spacer(Modifier.height(6.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Filled.Link,
+                            null,
+                            Modifier.size(12.dp),
+                            tint = InkSoft,
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            "Fuente: ${collection.source}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = InkSoft,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
             }
             items(collection.recipes) { recipe ->
                 DiscoverRecipeCard(

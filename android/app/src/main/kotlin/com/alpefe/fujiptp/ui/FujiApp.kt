@@ -42,7 +42,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.alpefe.fujiptp.ui.editor.EditorScreen
-import com.alpefe.fujiptp.ui.home.CameraRecipesScreen
 import com.alpefe.fujiptp.ui.home.HomeScreen
 import com.alpefe.fujiptp.ui.home.backlog.BacklogScreen
 import com.alpefe.fujiptp.ui.home.backlog.CollectionScreen
@@ -115,13 +114,6 @@ fun FujiApp(viewModel: FujiViewModel = viewModel()) {
                         viewModel = viewModel,
                         collectionId = s.collectionId,
                         collectionName = s.name,
-                        onBack = { viewModel.pop() },
-                    )
-                }
-                is Screen.CameraRecipes -> {
-                    BackHandler { viewModel.pop() }
-                    CameraRecipesScreen(
-                        viewModel = viewModel,
                         onBack = { viewModel.pop() },
                     )
                 }
