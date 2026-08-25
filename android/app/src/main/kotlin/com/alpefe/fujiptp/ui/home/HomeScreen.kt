@@ -87,6 +87,7 @@ fun HomeScreen(viewModel: FujiViewModel) {
     val devicePresent by viewModel.devicePresent.collectAsStateWithLifecycle()
     val cameraLabel by viewModel.cameraLabel.collectAsStateWithLifecycle()
     val busy by viewModel.busy.collectAsStateWithLifecycle()
+    val hasCameraRecipes by viewModel.hasCameraRecipes.collectAsStateWithLifecycle()
     val backlog by viewModel.backlog.collectAsStateWithLifecycle()
 
     var assignTarget by remember { mutableStateOf<Int?>(null) }
@@ -120,9 +121,12 @@ fun HomeScreen(viewModel: FujiViewModel) {
                 devicePresent = devicePresent,
                 cameraLabel = cameraLabel,
                 busy = busy,
+                hasCameraRecipes = hasCameraRecipes,
                 onConnect = { viewModel.connectRequested() },
                 onDisconnect = { viewModel.disconnect() },
                 onRead = { viewModel.readFromCamera() },
+                onShowCamera = { viewModel.push(Screen.CameraRecipes) },
+                onSendAll = { viewModel.sendAllToCamera() },
             )
         }
         item {
@@ -146,7 +150,6 @@ fun HomeScreen(viewModel: FujiViewModel) {
                 connected = connected,
                 onOpen = { viewModel.push(Screen.Editor(slot.recipe?.id, slot.index)) },
                 onSend = { recipe -> viewModel.sendToSlot(slot.index, recipe) },
-                onSaveCamera = { recipe -> viewModel.saveCameraRecipe(slot.index, recipe) },
                 onAssign = { assignTarget = slot.index },
                 onClear = { viewModel.clearSlot(slot.index) },
             )
@@ -184,9 +187,12 @@ private fun CameraCard(
     devicePresent: Boolean,
     cameraLabel: String?,
     busy: Boolean,
+    hasCameraRecipes: Boolean,
     onConnect: () -> Unit,
     onDisconnect: () -> Unit,
     onRead: () -> Unit,
+    onShowCamera: () -> Unit,
+    onSendAll: () -> Unit,
 ) {
     val bg = when {
         connected -> PastelGreen
@@ -276,6 +282,38 @@ private fun CameraCard(
                             Text("Desconectar")
                         }
                     }
+                    if (hasCameraRecipes) {
+                        Spacer(Modifier.height(10.dp))
+                        FilledTonalButton(
+                            onClick = onShowCamera,
+                            enabled = !busy,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(Radius.control),
+                            colors = ButtonDefaults.filledTonalButtonColors(
+                                containerColor = Surface,
+                                contentColor = Ink,
+                            ),
+                        ) {
+                            Icon(Icons.Filled.CameraAlt, null, Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Ver recipes en la cámara")
+                        }
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    FilledTonalButton(
+                        onClick = onSendAll,
+                        enabled = !busy,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(Radius.control),
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = Peach,
+                            contentColor = PeachDeep,
+                        ),
+                    ) {
+                        Icon(Icons.Filled.Send, null, Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Enviar mis recipes a la cámara")
+                    }
                 }
             }
             AnimatedVisibility(visible = !connected && devicePresent) {
@@ -317,7 +355,6 @@ private fun SlotCard(
     connected: Boolean,
     onOpen: () -> Unit,
     onSend: (RecipeModel) -> Unit,
-    onSaveCamera: (RecipeModel) -> Unit,
     onAssign: () -> Unit,
     onClear: () -> Unit,
 ) {
@@ -372,25 +409,7 @@ private fun SlotCard(
                         overflow = TextOverflow.Ellipsis,
                     )
                     Spacer(Modifier.height(6.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        FilmSimulationChip(recipe.filmSimulation)
-                        if (slot.fromCamera) {
-                            Spacer(Modifier.width(8.dp))
-                            androidx.compose.material3.SuggestionChip(
-                                onClick = { recipe?.let(onSaveCamera) },
-                                label = {
-                                    Text(
-                                        "Guardar en biblioteca",
-                                        style = MaterialTheme.typography.labelSmall,
-                                    )
-                                },
-                                colors = androidx.compose.material3.SuggestionChipDefaults.suggestionChipColors(
-                                    containerColor = Peach.copy(alpha = 0.55f),
-                                    labelColor = Ink,
-                                ),
-                            )
-                        }
-                    }
+                    FilmSimulationChip(recipe.filmSimulation)
                 } else {
                     Text(
                         "Vacío · toca para crear",
@@ -416,16 +435,6 @@ private fun SlotCard(
                             onClick = {
                                 menuOpen = false
                                 recipe?.let(onSend)
-                            },
-                        )
-                    }
-                    if (slot.fromCamera && recipe != null) {
-                        DropdownMenuItem(
-                            text = { Text("Guardar en biblioteca") },
-                            leadingIcon = { Icon(Icons.Filled.ContentCopy, null) },
-                            onClick = {
-                                menuOpen = false
-                                onSaveCamera(recipe)
                             },
                         )
                     }
