@@ -170,6 +170,23 @@ object DiscoverData {
                 r("Reggie's Portra", "ClassicChrome", "Classic Chrome · DR-Auto · H -1 / S -1 · Color +2 · NR -4 · Sharp -2 · Grain Weak Small · CC Strong · FX Blue Weak · WB Auto +2R/-4B", "https://fujixweekly.com/fujifilm-x-trans-v-recipes/"),
             ),
         ),
+        // --- EDDY's Point & Shoot (real, from image) ------------------------
+        DiscoverCollection(
+            id = "eddy",
+            name = "EDDY",
+            tagline = "Point & Shoot",
+            logo = "📸",
+            colorHex = 0xFF55303C,
+            source = "",
+            recipes = listOf(
+                r(
+                    "EDDY'S POINT & SHOOT",
+                    "ClassicNegative",
+                    "Film Sim: Classic Negative · Grain: Strong Large · Colour Chrome: Off · FX Blue: Weak · WB: Auto (R +4, B -4) · Dynamic Range: 200 · Tone Curve: H +1 / S 0 · Colour: +3 · Sharpness: -4 · NR: -4 · Clarity: 0 · Usa Tiffen Black Pro Mist 1/8 (si no, Clarity -3) · Suele sobreexponer +1",
+                    "",
+                ),
+            ),
+        ),
         // --- 2026 Popular (Top 26 most-viewed, Fuji X Weekly) ---------------
         DiscoverCollection(
             id = "popular2026",
