@@ -24,11 +24,18 @@ class CameraClient(private val bridge: UsbIo) {
     }
 
     fun closeSession(): Result<String> = runCatching {
+        // Idempotent: the Rust side also tolerates closing a session that
+        // already failed; a stale session is dropped on next connect anyway.
         nativeOk(FujiNative.nativeCloseSession()) { "close session" }
     }
 
     fun close(): Result<String> = runCatching {
-        nativeOk(FujiNative.nativeClose()) { "close" }
+        // Always succeeds: drops the controller and releases the transport.
+        val json = JSONObject(FujiNative.nativeClose())
+        if (!json.optBoolean("ok", false)) {
+            throw IllegalStateException(json.optString("error", "close failed"))
+        }
+        json.toString()
     }
 
     fun readRecipes(): Result<List<RecipeModel>> = runCatching {

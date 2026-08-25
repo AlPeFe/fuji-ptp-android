@@ -45,6 +45,14 @@ struct Controller {
     fuji: FujiPtp<AndroidTransport>,
 }
 
+/// Replaces the current controller, returning the previous one (dropped
+/// after this function returns). Used to reset the session state cleanly
+/// without holding the lock during teardown.
+fn replace_controller(new: Controller) -> Option<Controller> {
+    let mut guard = lock_controller();
+    std::mem::replace(&mut *guard, Some(new))
+}
+
 fn lock_controller() -> std::sync::MutexGuard<'static, Option<Controller>> {
     CONTROLLER
         .lock()
@@ -169,11 +177,10 @@ fn connect(bridge: GlobalRef) -> Result<(), String> {
     let vm: &'static JavaVM = VM.get().ok_or("JNI_OnLoad was not called")?;
     let transport = AndroidTransport { bridge, vm };
     let fuji = FujiPtp::new(transport);
-    let mut guard = lock_controller();
-    if guard.is_some() {
-        return Err("already connected".into());
-    }
-    *guard = Some(Controller { fuji });
+    // If a previous controller exists (stale session), drop it: a fresh
+    // connection must start from a clean session state.
+    let prev = replace_controller(Controller { fuji });
+    drop(prev);
     Ok(())
 }
 
@@ -189,10 +196,13 @@ fn open_session(session_id: u32) -> Result<(), String> {
 fn close_session() -> Result<(), String> {
     let mut guard = lock_controller();
     let controller = guard.as_mut().ok_or("not connected")?;
-    controller
-        .fuji
-        .close_session()
-        .map_err(|e| format!("close session failed: {e:?}"))
+    // Best effort: the camera may already be gone or the transport broken.
+    // If the close itself fails we still want the session dropped, so the
+    // next connect starts clean. The error is only informational.
+    match controller.fuji.close_session() {
+        Ok(()) => Ok(()),
+        Err(e) => Err(format!("close session failed: {e:?}")),
+    }
 }
 
 fn read_recipes_json() -> Result<String, String> {
@@ -348,14 +358,21 @@ pub extern "system" fn Java_com_alpefe_fujiptp_FujiNative_nativeWriteRecipeNames
     env.new_string(json).expect("JNI string").into_raw()
 }
 
-/// nativeClose(): String  — drops the controller (best effort).
+/// nativeClose(): String  — drops the controller entirely (best effort).
+/// After this, a fresh connect() must be performed; no stale session state
+/// survives.
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_com_alpefe_fujiptp_FujiNative_nativeClose(
     env: JNIEnv<'_>,
     _this: JObject<'_>,
 ) -> jstring {
     clear_pending_exception(&env);
-    *lock_controller() = None;
+    // If a session is open, try to close it first (ignoring errors), then
+    // drop the controller so the transport/state is fully released.
+    if let Some(mut controller) = lock_controller().take() {
+        let _ = controller.fuji.close_session();
+        drop(controller);
+    }
     env.new_string(ok_json()).expect("JNI string").into_raw()
 }
 

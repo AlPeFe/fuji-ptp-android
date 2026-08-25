@@ -214,15 +214,35 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
                 val camera = client
                 val io = bridge
                 withContext(Dispatchers.IO) {
+                    // Best effort, in order: close PTP session, then drop the
+                    // controller, then release the USB connection. Each step
+                    // is individually guarded so one failure can't leak the
+                    // others (this is what previously required a full app
+                    // restart).
                     runCatching { camera?.closeSession() }
                     runCatching { camera?.close() }
-                    io?.close()
+                    runCatching { io?.close() }
                 }
                 client = null
                 bridge = null
                 connected.value = false
+                cameraRecipesInternal.value = null
                 notifyUser("Desconectado")
             }
+        }
+    }
+
+    /** Hard reset of the native session state (used after a failed op). */
+    fun resetNativeSession() {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                runCatching { client?.close() }
+                runCatching { bridge?.close() }
+            }
+            client = null
+            bridge = null
+            connected.value = false
+            cameraRecipesInternal.value = null
         }
     }
 
@@ -272,6 +292,9 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
                     notifyUser("C1–C7 leídos de la cámara")
                 } catch (e: Exception) {
                     notifyUser("Error leyendo recipes: ${e.message ?: "desconocido"}")
+                    // The PTP session may be in a bad state; reset it so the
+                    // next operation (reconnect) starts clean.
+                    resetNativeSession()
                 }
             }
         }
@@ -324,6 +347,8 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
                 // Refresh what the camera has.
                 readFromCamera()
             }
+            // If nothing was written, the session is suspect: reset it.
+            if (current.none { it.recipe != null }) resetNativeSession()
         }
     }
 
