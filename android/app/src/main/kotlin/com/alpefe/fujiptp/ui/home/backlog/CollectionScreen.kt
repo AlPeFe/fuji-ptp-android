@@ -416,16 +416,21 @@ fun CollectionScreen(
     }
 
     assignToSlot?.let { recipe ->
-        SlotPickerDialog(
-            title = "Asignar «${recipe.name}» a…",
-            slots = slots,
-            busy = busy,
-            onPick = { slot ->
-                viewModel.assignToSlot(slot, recipe.id)
-                assignToSlot = null
-            },
-            onDismiss = { assignToSlot = null },
-        )
+        if (!connected) {
+            viewModel.notifyUser("Conecta la cámara para poder asignar a un slot")
+            assignToSlot = null
+        } else {
+            SlotPickerDialog(
+                title = "Asignar «${recipe.name}» a…",
+                slots = slots,
+                busy = busy,
+                onPick = { slot ->
+                    viewModel.assignToSlot(slot, recipe.id)
+                    assignToSlot = null
+                },
+                onDismiss = { assignToSlot = null },
+            )
+        }
     }
 }
 

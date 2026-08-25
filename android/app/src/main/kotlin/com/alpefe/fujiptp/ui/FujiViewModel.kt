@@ -70,6 +70,13 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
     /** Recipes read from the camera, held in memory (not in the library). */
     private val cameraRecipesInternal = MutableStateFlow<List<RecipeModel>?>(null)
 
+    /**
+     * User overrides for individual slots while the camera is connected:
+     * slot index -> recipe. These are what make the profile diverge from
+     * the camera before the user sends the profile back.
+     */
+    private val pendingOverrides = MutableStateFlow<Map<Int, RecipeModel>>(emptyMap())
+
     /** Public view of the camera's loaded recipes (read-only, only when connected). */
     val cameraRecipes: StateFlow<List<RecipeModel>> = cameraRecipesInternal
         .map { it ?: emptyList() }
@@ -81,18 +88,20 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     /**
-     * The 7 slots reflect the camera's loaded recipes when available (after
-     * connecting + reading); otherwise they show the user's own profile
-     * assignments. This way the profile always mirrors the camera without
-     * extra taps.
+     * The 7 slots are the camera profile:
+     * - No camera loaded -> all empty (profile is not modifiable).
+     * - Camera loaded -> the camera's recipes, with any pending user
+     *   overrides applied on top (assignments made from the library).
      */
     val slots: StateFlow<List<SlotUi>> =
-        combine(repo.slots, cameraRecipesInternal) { rows, cam ->
-            if (cam != null) {
-                cam.mapIndexed { index, recipe -> SlotUi(index + 1, recipe) }
+        combine(cameraRecipesInternal, pendingOverrides) { cam, overrides ->
+            if (cam == null) {
+                (1..7).map { SlotUi(it, null) }
             } else {
-                val byIndex = rows.associateBy { it.slotIndex }
-                (1..7).map { i -> SlotUi(i, byIndex[i]?.recipe?.toModel()) }
+                (1..7).map { i ->
+                    val override = overrides[i]
+                    SlotUi(i, override ?: cam[i - 1])
+                }
             }
         }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), (1..7).map { SlotUi(it, null) })
@@ -235,6 +244,7 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
                 bridge = null
                 connected.value = false
                 cameraRecipesInternal.value = null
+                pendingOverrides.value = emptyMap()
                 notifyUser("Desconectado")
             }
         }
@@ -251,6 +261,7 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
             bridge = null
             connected.value = false
             cameraRecipesInternal.value = null
+            pendingOverrides.value = emptyMap()
         }
     }
 
@@ -295,8 +306,11 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
             withBusy {
                 try {
                     val recipes = withContext(Dispatchers.IO) { camera.readRecipes() }.getOrThrow()
-                    // Kept in memory only: shown in the "En la cámara" view.
+                    // Kept in memory only: shown in the profile. Loading from
+                    // the camera resets any pending overrides (the camera is
+                    // the source of truth again).
                     cameraRecipesInternal.value = recipes
+                    pendingOverrides.value = emptyMap()
                     notifyUser("C1–C7 leídos de la cámara")
                 } catch (e: Exception) {
                     notifyUser("Error leyendo recipes: ${e.message ?: "desconocido"}")
@@ -331,18 +345,16 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
                 return@launch
             }
             val current = slots.value
-            val recipes = current.mapNotNull { it.recipe }
-            if (recipes.isEmpty()) {
-                notifyUser("No hay recipes activas para enviar")
-                return@launch
-            }
             withBusy {
                 var ok = 0
                 var failed = 0
                 for (slot in 1..7) {
-                    val recipe = current[slot - 1].recipe ?: continue
+                    val recipe = current[slot - 1].recipe
                     try {
-                        withContext(Dispatchers.IO) { camera.writeRecipe(slot, recipe) }
+                        // Empty recipe = clear that slot on the camera.
+                        withContext(Dispatchers.IO) {
+                            camera.writeRecipe(slot, recipe ?: RecipeModel(name = ""))
+                        }
                         ok++
                     } catch (e: Exception) {
                         failed++
@@ -352,11 +364,11 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
                     if (failed == 0) "Se enviaron $ok recipes a la cámara"
                     else "$ok enviadas, $failed fallaron"
                 )
-                // Refresh what the camera has.
+                // The camera is now the source of truth: refresh and drop
+                // all pending overrides.
+                pendingOverrides.value = emptyMap()
                 readFromCamera()
             }
-            // If nothing was written, the session is suspect: reset it.
-            if (current.none { it.recipe != null }) resetNativeSession()
         }
     }
 
@@ -369,18 +381,12 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
             }
             withBusy {
                 try {
-                    // Unsaved recipes (id == 0) are persisted first so the
-                    // slot assignment can reference them.
-                    val id = if (recipe.id > 0) recipe.id
-                    else withContext(Dispatchers.IO) { repo.save(recipe) }
-                    val saved = repo.get(id)
-                    if (saved == null) {
-                        notifyUser("No se pudo guardar la recipe")
-                        return@withBusy
-                    }
-                    withContext(Dispatchers.IO) { camera.writeRecipe(slot, saved) }
-                    withContext(Dispatchers.IO) { repo.assignToSlot(slot, id) }
+                    withContext(Dispatchers.IO) { camera.writeRecipe(slot, recipe) }
+                    // The camera now has it: drop any pending override for
+                    // that slot and refresh the profile.
+                    pendingOverrides.value = pendingOverrides.value - slot
                     notifyUser("Recipe enviada a C$slot")
+                    readFromCamera()
                 } catch (e: Exception) {
                     notifyUser("Error escribiendo C$slot: ${e.message ?: "desconocido"}")
                 }
@@ -404,7 +410,7 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
             withBusy {
                 try {
                     withContext(Dispatchers.IO) { camera.writeRecipe(slot, recipe) }
-                    withContext(Dispatchers.IO) { repo.assignToSlot(slot, recipeId) }
+                    pendingOverrides.value = pendingOverrides.value - slot
                     notifyUser("Recipe enviada a C$slot")
                 } catch (e: Exception) {
                     notifyUser("Error escribiendo C$slot: ${e.message ?: "desconocido"}")
@@ -456,18 +462,40 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /**
+     * Assigns a library recipe to a profile slot WITHOUT sending it to the
+     * camera. Only possible while the camera is connected (the profile is a
+     * mirror of the camera). The assignment becomes a pending override shown
+     * in the profile; it is written to the camera on the next send.
+     */
     fun assignToSlot(slot: Int, recipeId: Long) {
-        viewModelScope.launch {
-            withContext(Dispatchers.IO) { repo.assignToSlot(slot, recipeId) }
-            notifyUser("Asignada a C$slot")
+        if (cameraRecipesInternal.value == null) {
+            notifyUser("Conecta la cámara para poder asignar a un slot")
+            return
         }
+        val recipe = backlog.value.firstOrNull { it.id == recipeId }
+        if (recipe == null) {
+            notifyUser("Recipe no encontrada")
+            return
+        }
+        pendingOverrides.value = pendingOverrides.value + (slot to recipe)
+        notifyUser("«${recipe.name}» asignada a C$slot (pendiente de enviar)")
     }
 
+    /** Removes a pending override for a slot (falls back to the camera value). */
     fun clearSlot(slot: Int) {
-        viewModelScope.launch {
-            withContext(Dispatchers.IO) { repo.clearSlot(slot) }
-            notifyUser("C$slot vaciado")
+        val cam = cameraRecipesInternal.value ?: run {
+            notifyUser("Conecta la cámara para modificar el perfil")
+            return
         }
+        val overrides = pendingOverrides.value
+        pendingOverrides.value = overrides - slot
+        // If there was no override, this clears the slot entirely (will be
+        // sent as empty when the profile is pushed to the camera).
+        if (slot !in overrides) {
+            pendingOverrides.value = pendingOverrides.value + (slot to RecipeModel(name = ""))
+        }
+        notifyUser("C$slot vaciado")
     }
 
     // --- collections -----------------------------------------------------------

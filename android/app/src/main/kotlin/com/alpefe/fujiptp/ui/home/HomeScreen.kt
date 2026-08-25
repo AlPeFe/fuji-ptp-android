@@ -148,7 +148,10 @@ fun HomeScreen(viewModel: FujiViewModel) {
                 onSend = { recipe -> viewModel.sendToSlot(slot.index, recipe) },
                 // Asignar desde la biblioteca: navega ahí (donde podrás elegir
                 // la recipe y asignarla a C1-C7 con la cámara conectada).
-                onAssign = { viewModel.push(Screen.Backlog) },
+                onAssign = {
+                    if (connected) viewModel.push(Screen.Backlog)
+                    else viewModel.notifyUser("Conecta la cámara para poder asignar a un slot")
+                },
                 onClear = { viewModel.clearSlot(slot.index) },
             )
         }
