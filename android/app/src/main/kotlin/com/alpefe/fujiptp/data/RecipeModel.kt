@@ -60,7 +60,7 @@ enum class WhiteBalanceMode(val wire: String, val label: String) {
     Fluorescent3("Fluorescent3", "Fluorescent 3"),
     Incandescent("Incandescent", "Incandescent"),
     Underwater("Underwater", "Underwater"),
-    ColorTemperature("ColorTemperature", "Color Temperature"),
+    ColorTemperature("ColorTemperature", "K · Temperatura"),
     AmbiencePriority("AmbiencePriority", "Ambience Priority");
 }
 

@@ -381,6 +381,12 @@ fun EditorScreen(
                         }
                         AnimatedVisibility(visible = current.whiteBalanceMode == WhiteBalanceMode.ColorTemperature) {
                             Column {
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    "Modo K: fija la temperatura de color en Kelvin",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = InkSoft,
+                                )
                                 DialSlider(
                                     "Temperatura (K)",
                                     (current.whiteBalanceTemperature ?: 5500).toFloat(),
