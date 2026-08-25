@@ -556,10 +556,16 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             var count = 0
             for ((name, filmSimulation) in recipes) {
-                val film = com.alpefe.fujiptp.data.FilmSimulation.entries
-                    .firstOrNull { it.name == filmSimulation }
-                    ?: com.alpefe.fujiptp.data.FilmSimulation.ClassicChrome
-                val recipe = RecipeModel(name = name, filmSimulation = film)
+                val discover = com.alpefe.fujiptp.data.DiscoverData.collections
+                    .flatMap { it.recipes }
+                    .firstOrNull { it.name == name && it.filmSimulation == filmSimulation }
+                val recipe = discover?.toModel()
+                    ?: RecipeModel(
+                        name = name,
+                        filmSimulation = com.alpefe.fujiptp.data.FilmSimulation.entries
+                            .firstOrNull { it.name == filmSimulation }
+                            ?: com.alpefe.fujiptp.data.FilmSimulation.ClassicChrome,
+                    )
                 val id = withContext(Dispatchers.IO) { repo.save(recipe, collectionId) }
                 if (id > 0) count++
             }

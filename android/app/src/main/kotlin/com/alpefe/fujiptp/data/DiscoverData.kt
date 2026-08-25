@@ -15,7 +15,131 @@ data class DiscoverRecipe(
     val description: String,
     /** Source URL of this specific recipe. */
     val source: String,
-)
+) {
+    /**
+     * Parses the recipe values embedded in [description] into a full
+     * RecipeModel (film sim + tone, grain, WB, DR, etc.), so importing from
+     * Discover preserves the real settings instead of defaults.
+     */
+    fun toModel(): RecipeModel {
+        val d = description.lowercase()
+        val film = FilmSimulation.entries.firstOrNull { it.name == filmSimulation }
+            ?: FilmSimulation.ClassicChrome
+
+        /** Value of the segment right after [key], up to the next "·" or end. */
+        fun segment(key: String): String {
+            val idx = d.indexOf(key)
+            if (idx < 0) return ""
+            var end = d.indexOf('·', idx + key.length)
+            if (end < 0) end = d.length
+            return d.substring(idx + key.length, end)
+        }
+        fun intAfter(vararg keys: String): Int? {
+            for (key in keys) {
+                val m = Regex("""([+-]?\d+)""").find(segment(key))
+                if (m != null) return m.groupValues[1].toInt()
+            }
+            return null
+        }
+        fun floatAfter(vararg keys: String): Float? {
+            for (key in keys) {
+                val m = Regex("""([+-]?\d+(?:\.\d+)?)""").find(segment(key))
+                if (m != null) return m.groupValues[1].toFloat()
+            }
+            return null
+        }
+
+        // Grain: "grain: strong large" / "grain effect: strong, small" /
+        // "grain weak small" / "grain: off"
+        val grainSection = segment("grain")
+        val grain = when {
+            grainSection.contains("strong") && grainSection.contains("large") -> GrainEffect.StrongLarge
+            grainSection.contains("weak") && grainSection.contains("large") -> GrainEffect.WeakLarge
+            grainSection.contains("strong") && grainSection.contains("small") -> GrainEffect.StrongSmall
+            grainSection.contains("weak") && grainSection.contains("small") -> GrainEffect.WeakSmall
+            else -> GrainEffect.Off
+        }
+
+        // Color chrome / FX blue (segment-scoped, so one value can't bleed
+        // into the next)
+        fun effectOf(section: String): EffectStrength = when {
+            section.contains("strong") -> EffectStrength.Strong
+            section.contains("weak") -> EffectStrength.Weak
+            else -> EffectStrength.Off
+        }
+        val cc = effectOf(
+            segment("cc:").ifEmpty { segment("colour chrome:").ifEmpty { segment("color chrome effect:").ifEmpty { segment("cc ") } } }
+        )
+        val fx = effectOf(
+            segment("fx blue:").ifEmpty { segment("color chrome fx blue:").ifEmpty { segment("fx blue ") } }
+        )
+
+        // White balance: mode + R/B shifts + temperature
+        val wbTemp = Regex("""(\d{4})k""").find(d)?.groupValues?.get(1)?.toInt()
+        val wbMode = when {
+            d.contains("wb: shade") -> WhiteBalanceMode.Shade
+            d.contains("wb: daylight") -> WhiteBalanceMode.Daylight
+            wbTemp != null -> WhiteBalanceMode.ColorTemperature
+            else -> WhiteBalanceMode.Auto
+        }
+        val wbR = intAfter("r +", "r:", "red +") ?: 0
+        val wbB = intAfter("b -", "b:", "blue -") ?: 0
+        // "(R +4, B -4)" style
+        val wbRParen = Regex("""r\s*([+-]?\d+)""").find(d)?.groupValues?.get(1)?.toInt()
+        val wbBParen = Regex("""b\s*([+-]?\d+)""").find(d)?.groupValues?.get(1)?.toInt()
+        // "+2R/-4B" style (Reggie's)
+        val wbRPost = Regex("""([+-]?\d+)\s*r""").find(d)?.groupValues?.get(1)?.toInt()
+        val wbBPost = Regex("""([+-]?\d+)\s*b""").find(d)?.groupValues?.get(1)?.toInt()
+
+        // Dynamic range
+        val dr = when {
+            d.contains("dr400") || d.contains("dr 400") || d.contains("dynamic range: 400") -> DynamicRange.Dr400
+            d.contains("dr200") || d.contains("dr 200") || d.contains("dynamic range: 200") -> DynamicRange.Dr200
+            else -> DynamicRange.Dr100
+        }
+
+        // Tone curve: "h +1 / s 0", "h -1.5", "highlight: +4", "shadow: +4"
+        fun toneValue(label: String): Float? {
+            val patterns = listOf(
+                Regex("""\b$label\b\s*([+-]?\d+(?:\.\d+)?)"""),
+                Regex("""(?:^|[^a-z])$label:\s*([+-]?\d+(?:\.\d+)?)"""),
+            )
+            for (p in patterns) {
+                val m = p.find(d)
+                if (m != null) return m.groupValues[1].toFloat()
+            }
+            return null
+        }
+        val highlight = toneValue("h") ?: toneValue("highlight")
+        val shadow = toneValue("s") ?: toneValue("shadow")
+
+        return RecipeModel(
+            name = name,
+            filmSimulation = film,
+            dynamicRange = dr,
+            grainEffect = grain,
+            colorChrome = cc,
+            colorChromeFxBlue = fx,
+            whiteBalanceMode = wbMode,
+            whiteBalanceShiftR = wbRParen ?: wbRPost ?: wbR,
+            whiteBalanceShiftB = wbBParen ?: wbBPost ?: wbB,
+            whiteBalanceTemperature = wbTemp,
+            highlight = highlight ?: 0f,
+            shadow = shadow ?: 0f,
+            color = floatAfter("color:") ?: floatAfter("colour:") ?: run {
+                // "color +2" / "colour +2" (no colon) — skip "color chrome"
+                val m = Regex("""(?:color|colour)\s+([+-]?\d+(?:\.\d+)?)""").find(d)
+                m?.groupValues?.get(1)?.toFloat() ?: 0f
+            },
+            sharpness = floatAfter("sharpness:") ?: floatAfter("sharp:") ?: floatAfter("sharp ") ?: 0f,
+            clarity = floatAfter("clarity:") ?: 0f,
+            noiseReduction = intAfter("nr:") ?: intAfter("noise reduction:") ?: run {
+                val m = Regex("""\bnr\s*([+-]?\d+)""").find(d)
+                m?.groupValues?.get(1)?.toInt() ?: 0
+            },
+        )
+    }
+}
 
 data class DiscoverCollection(
     val id: String,
