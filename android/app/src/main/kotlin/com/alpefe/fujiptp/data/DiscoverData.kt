@@ -170,6 +170,23 @@ object DiscoverData {
                 r("Reggie's Portra", "ClassicChrome", "Classic Chrome · DR-Auto · H -1 / S -1 · Color +2 · NR -4 · Sharp -2 · Grain Weak Small · CC Strong · FX Blue Weak · WB Auto +2R/-4B", "https://fujixweekly.com/fujifilm-x-trans-v-recipes/"),
             ),
         ),
+        // --- Black and White (Kevin Mullins, real) --------------------------
+        DiscoverCollection(
+            id = "bw",
+            name = "Black and White",
+            tagline = "B/N de Kevin Mullins",
+            logo = "⚫",
+            colorHex = 0xFF3E3E3E,
+            source = "https://www.kevinmullinsphotography.co.uk/blog/fujifilm-recipe-black-and-white",
+            recipes = listOf(
+                r(
+                    "Newspaper",
+                    "AcrosYellow",
+                    "Film Sim: Acros + Ye · Grain: Strong Small · WB Shift: R -4, B -3 · Highlight: +4 · Shadow: +4 · Sharpness: +2 · Clarity: 0 · NR: 0 · Look de prensa B/N de los 70-80",
+                    "https://www.kevinmullinsphotography.co.uk/blog/fujifilm-recipe-black-and-white",
+                ),
+            ),
+        ),
         // --- EDDY's Point & Shoot (real, from image) ------------------------
         DiscoverCollection(
             id = "eddy",
@@ -183,6 +200,12 @@ object DiscoverData {
                     "EDDY'S POINT & SHOOT",
                     "ClassicNegative",
                     "Film Sim: Classic Negative · Grain: Strong Large · Colour Chrome: Off · FX Blue: Weak · WB: Auto (R +4, B -4) · Dynamic Range: 200 · Tone Curve: H +1 / S 0 · Colour: +3 · Sharpness: -4 · NR: -4 · Clarity: 0 · Usa Tiffen Black Pro Mist 1/8 (si no, Clarity -3) · Suele sobreexponer +1",
+                    "",
+                ),
+                r(
+                    "EDDY'S POINT & SHOOT 2",
+                    "ClassicNegative",
+                    "Para sunset/golden hour · Film Sim: Classic Negative · Grain: Strong Large · Colour Chrome: Strong · FX Blue: Strong · WB: Auto (R +5, B -5) · Dynamic Range: 200 · Tone Curve: H -1 / S +2 · Colour: +4 · Sharpness: -4 · NR: -4 · Clarity: 0 · Usa Tiffen Black Pro Mist 1/8 (si no, Clarity -3)",
                     "",
                 ),
             ),
