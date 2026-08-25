@@ -519,15 +519,26 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Imports a Discover recipe into one of the user's collections. */
     fun importDiscoverRecipe(name: String, filmSimulation: String, collectionId: Long) {
+        importDiscoverRecipes(listOf(name to filmSimulation), collectionId)
+    }
+
+    /** Imports multiple Discover recipes (or a whole collection) at once. */
+    fun importDiscoverRecipes(recipes: List<Pair<String, String>>, collectionId: Long) {
+        if (recipes.isEmpty()) return
         viewModelScope.launch {
-            val film = com.alpefe.fujiptp.data.FilmSimulation.entries
-                .firstOrNull { it.name == filmSimulation }
-                ?: com.alpefe.fujiptp.data.FilmSimulation.ClassicChrome
-            val recipe = RecipeModel(name = name, filmSimulation = film)
-            val id = withContext(Dispatchers.IO) { repo.save(recipe, collectionId) }
-            if (id > 0) {
-                notifyUser("«$name» importada a tu colección")
+            var count = 0
+            for ((name, filmSimulation) in recipes) {
+                val film = com.alpefe.fujiptp.data.FilmSimulation.entries
+                    .firstOrNull { it.name == filmSimulation }
+                    ?: com.alpefe.fujiptp.data.FilmSimulation.ClassicChrome
+                val recipe = RecipeModel(name = name, filmSimulation = film)
+                val id = withContext(Dispatchers.IO) { repo.save(recipe, collectionId) }
+                if (id > 0) count++
             }
+            notifyUser(
+                if (count == recipes.size) "$count recipes importadas a tu colección"
+                else "$count de ${recipes.size} recipes importadas"
+            )
         }
     }
 

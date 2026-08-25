@@ -144,18 +144,25 @@ fun DiscoverRecipeDetailScreen(
                     )
                     if (recipe.source.isNotBlank()) {
                         Spacer(Modifier.height(12.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable { uriHandler.openUri(recipe.source) }
+                                .padding(vertical = 4.dp),
+                        ) {
                             Icon(
                                 Icons.Filled.Link,
                                 null,
                                 Modifier.size(12.dp),
-                                tint = InkSoft,
+                                tint = PeachDeep,
                             )
                             Spacer(Modifier.width(4.dp))
                             Text(
                                 "Fuente: ${recipe.source}",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = InkSoft,
+                                color = PeachDeep,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )

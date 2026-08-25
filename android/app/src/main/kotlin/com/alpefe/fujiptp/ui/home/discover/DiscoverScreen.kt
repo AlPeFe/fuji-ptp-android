@@ -41,6 +41,7 @@ import com.alpefe.fujiptp.ui.FujiViewModel
 import com.alpefe.fujiptp.ui.Screen
 import com.alpefe.fujiptp.ui.theme.Ink
 import com.alpefe.fujiptp.ui.theme.InkSoft
+import com.alpefe.fujiptp.ui.theme.PeachDeep
 import com.alpefe.fujiptp.ui.theme.Radius
 import com.alpefe.fujiptp.ui.theme.Surface
 
@@ -145,11 +146,15 @@ fun DiscoverCard(
                     modifier = Modifier.weight(1f),
                 )
                 if (collection.source.isNotBlank()) {
+                    val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
                     Icon(
                         Icons.Filled.Link,
-                        contentDescription = "Fuente",
-                        tint = InkSoft,
-                        modifier = Modifier.size(12.dp),
+                        contentDescription = "Abrir fuente",
+                        tint = PeachDeep,
+                        modifier = Modifier
+                            .size(16.dp)
+                            .clip(CircleShape)
+                            .clickable { uriHandler.openUri(collection.source) },
                     )
                 }
             }

@@ -1,5 +1,10 @@
 package com.alpefe.fujiptp.ui.home.discover
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -21,12 +26,16 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -42,6 +51,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -53,16 +63,18 @@ import com.alpefe.fujiptp.ui.FujiViewModel
 import com.alpefe.fujiptp.ui.Screen
 import com.alpefe.fujiptp.ui.components.FilmSimulationChip
 import com.alpefe.fujiptp.ui.theme.Canvas
+import com.alpefe.fujiptp.ui.theme.DustyPink
 import com.alpefe.fujiptp.ui.theme.Ink
 import com.alpefe.fujiptp.ui.theme.InkSoft
+import com.alpefe.fujiptp.ui.theme.Peach
 import com.alpefe.fujiptp.ui.theme.PeachDeep
 import com.alpefe.fujiptp.ui.theme.Radius
 import com.alpefe.fujiptp.ui.theme.Surface
 
 /**
  * Inside a predefined Discover collection. Read-only: recipes here cannot be
- * edited or deleted; the user can only import one (or all) into their own
- * collections.
+ * edited or deleted; the user can import one, several (multi-select) or the
+ * whole collection into their own collections.
  */
 @Composable
 fun DiscoverCollectionScreen(
@@ -78,11 +90,16 @@ fun DiscoverCollectionScreen(
     }
     val collections by viewModel.collections.collectAsStateWithLifecycle()
     var importTarget by remember { mutableStateOf<DiscoverRecipe?>(null) }
+    var importBatch by remember { mutableStateOf<Boolean>(false) }
+    var selection by remember { mutableStateOf<Set<String>>(emptySet()) }
+    val uriHandler = LocalUriHandler.current
+
+    val selecting = selection.isNotEmpty()
 
     Box(Modifier.fillMaxSize().background(Canvas)) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 32.dp),
+            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 120.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {
@@ -122,6 +139,15 @@ fun DiscoverCollectionScreen(
                             }
                         }
                     }
+                    if (selecting) {
+                        IconButton(onClick = { selection = emptySet() }) {
+                            Icon(
+                                Icons.Filled.CheckCircle,
+                                contentDescription = "Cancelar selección",
+                                tint = InkSoft,
+                            )
+                        }
+                    }
                 }
                 Spacer(Modifier.height(8.dp))
                 Text(
@@ -131,60 +157,152 @@ fun DiscoverCollectionScreen(
                 )
                 if (collection.source.isNotBlank()) {
                     Spacer(Modifier.height(6.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable { uriHandler.openUri(collection.source) }
+                            .padding(vertical = 4.dp),
+                    ) {
                         Icon(
                             Icons.Filled.Link,
                             null,
                             Modifier.size(12.dp),
-                            tint = InkSoft,
+                            tint = PeachDeep,
                         )
                         Spacer(Modifier.width(4.dp))
                         Text(
                             "Fuente: ${collection.source}",
                             style = MaterialTheme.typography.labelSmall,
-                            color = InkSoft,
+                            color = PeachDeep,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
                     }
                 }
             }
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    FilledTonalButton(
+                        onClick = {
+                            selection = if (selection.size == collection.recipes.size) emptySet()
+                            else collection.recipes.map { it.name }.toSet()
+                        },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(Radius.control),
+                        colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
+                            containerColor = Surface,
+                            contentColor = Ink,
+                        ),
+                    ) {
+                        Icon(
+                            if (selection.size == collection.recipes.size) Icons.Filled.CheckCircle
+                            else Icons.Filled.RadioButtonUnchecked,
+                            null,
+                            Modifier.size(16.dp),
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(if (selection.size == collection.recipes.size) "Ninguna" else "Seleccionar todo")
+                    }
+                    FilledTonalButton(
+                        onClick = { importBatch = true },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(Radius.control),
+                        colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
+                            containerColor = Peach,
+                            contentColor = PeachDeep,
+                        ),
+                    ) {
+                        Icon(Icons.Filled.Download, null, Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Importar todo")
+                    }
+                }
+            }
             items(collection.recipes) { recipe ->
+                val selected = recipe.name in selection
                 DiscoverRecipeCard(
                     recipe = recipe,
+                    selecting = selecting,
+                    selected = selected,
+                    onToggleSelect = {
+                        selection = if (selected) selection - recipe.name else selection + recipe.name
+                    },
                     onClick = {
-                        viewModel.push(
-                            Screen.DiscoverRecipeDetail(collection.id, recipe.name),
-                        )
+                        if (selecting) {
+                            selection = if (selected) selection - recipe.name else selection + recipe.name
+                        } else {
+                            viewModel.push(Screen.DiscoverRecipeDetail(collection.id, recipe.name))
+                        }
                     },
                     onImport = { importTarget = recipe },
                 )
             }
         }
+
+        // Bulk import bar.
+        AnimatedVisibility(
+            visible = selecting,
+            enter = slideInVertically(androidx.compose.animation.core.tween(180)) { it } + fadeIn(androidx.compose.animation.core.tween(120)),
+            exit = slideOutVertically(androidx.compose.animation.core.tween(150)) { it } + fadeOut(androidx.compose.animation.core.tween(120)),
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            Box(Modifier.fillMaxSize()) {
+                Row(
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 92.dp)
+                        .clip(RoundedCornerShape(Radius.control))
+                        .background(Surface)
+                        .padding(horizontal = 18.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    IconButton(onClick = { selection = emptySet() }) {
+                        Icon(Icons.Filled.RadioButtonUnchecked, contentDescription = "Cancelar", tint = InkSoft)
+                    }
+                    Text(
+                        "${selection.size} seleccionada${if (selection.size == 1) "" else "s"}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Ink,
+                        modifier = Modifier.weight(1f),
+                    )
+                    TextButton(onClick = { importBatch = true }, enabled = selecting) {
+                        Icon(Icons.Filled.Download, null, Modifier.size(16.dp), tint = PeachDeep)
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            "Importar (${selection.size})",
+                            color = PeachDeep,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                }
+            }
+        }
     }
 
-    importTarget?.let { recipe ->
-        val film = FilmSimulation.entries.firstOrNull { it.name == recipe.filmSimulation }
-            ?: FilmSimulation.ClassicChrome
+    // Target collection dialog for the selected recipes.
+    if (importBatch || importTarget != null) {
+        val recipesToImport: List<DiscoverRecipe> = when {
+            importTarget != null -> listOf(importTarget!!)
+            selection.isNotEmpty() -> collection.recipes.filter { it.name in selection }
+            else -> collection.recipes // "Importar todo"
+        }
         AlertDialog(
-            onDismissRequest = { importTarget = null },
+            onDismissRequest = {
+                importBatch = false
+                importTarget = null
+            },
             containerColor = MaterialTheme.colorScheme.surface,
             shape = RoundedCornerShape(Radius.card),
-            title = { Text("Importar recipe", style = MaterialTheme.typography.titleLarge) },
+            title = { Text("Importar recipes", style = MaterialTheme.typography.titleLarge) },
             text = {
                 Column {
                     Text(
-                        "«${recipe.name}» · ${film.label}",
+                        "${recipesToImport.size} recipe${if (recipesToImport.size == 1) "" else "s"} seleccionada${if (recipesToImport.size == 1) "" else "s"} · ¿A qué colección?",
                         style = MaterialTheme.typography.bodyMedium,
                         color = InkSoft,
                     )
                     Spacer(Modifier.height(12.dp))
-                    Text(
-                        "¿A qué colección quieres importarla?",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Spacer(Modifier.height(8.dp))
                     collections.forEach { collection ->
                         Row(
                             modifier = Modifier
@@ -192,8 +310,11 @@ fun DiscoverCollectionScreen(
                                 .clip(RoundedCornerShape(16.dp))
                                 .background(Color(collection.colorHex).copy(alpha = 0.5f))
                                 .clickable {
-                                    viewModel.importDiscoverRecipe(recipe.name, recipe.filmSimulation, collection.id)
+                                    val pairs = recipesToImport.map { it.name to it.filmSimulation }
+                                    viewModel.importDiscoverRecipes(pairs, collection.id)
+                                    importBatch = false
                                     importTarget = null
+                                    selection = emptySet()
                                 }
                                 .padding(horizontal = 14.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
@@ -213,7 +334,10 @@ fun DiscoverCollectionScreen(
             },
             confirmButton = {},
             dismissButton = {
-                TextButton(onClick = { importTarget = null }) { Text("Cancelar") }
+                TextButton(onClick = {
+                    importBatch = false
+                    importTarget = null
+                }) { Text("Cancelar") }
             },
         )
     }
@@ -222,22 +346,40 @@ fun DiscoverCollectionScreen(
 @Composable
 private fun DiscoverRecipeCard(
     recipe: DiscoverRecipe,
+    selecting: Boolean,
+    selected: Boolean,
+    onToggleSelect: () -> Unit,
     onClick: () -> Unit,
     onImport: () -> Unit,
 ) {
     val film = FilmSimulation.entries.firstOrNull { it.name == recipe.filmSimulation }
         ?: FilmSimulation.ClassicChrome
+    val uriHandler = LocalUriHandler.current
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(Radius.card))
             .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor = Surface),
+        colors = CardDefaults.cardColors(
+            containerColor = if (selected) DustyPink.copy(alpha = 0.55f) else Surface,
+        ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         shape = RoundedCornerShape(Radius.card),
     ) {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
+                if (selecting) {
+                    Checkbox(
+                        checked = selected,
+                        onCheckedChange = { onToggleSelect() },
+                        colors = CheckboxDefaults.colors(
+                            checkedColor = PeachDeep,
+                            checkmarkColor = Color.White,
+                            uncheckedColor = InkSoft,
+                        ),
+                    )
+                    Spacer(Modifier.width(4.dp))
+                }
                 Column(Modifier.weight(1f)) {
                     Text(
                         recipe.name,
@@ -259,10 +401,39 @@ private fun DiscoverRecipeCard(
                 onClick = onImport,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(Radius.control),
+                colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
+                    containerColor = Peach,
+                    contentColor = PeachDeep,
+                ),
             ) {
                 Icon(Icons.Filled.Download, null, Modifier.size(16.dp))
                 Spacer(Modifier.width(6.dp))
                 Text("Importar a mi biblioteca")
+            }
+            if (recipe.source.isNotBlank()) {
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable { uriHandler.openUri(recipe.source) }
+                        .padding(vertical = 4.dp),
+                ) {
+                    Icon(
+                        Icons.Filled.Link,
+                        null,
+                        Modifier.size(12.dp),
+                        tint = PeachDeep,
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        "Fuente: ${recipe.source}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = PeachDeep,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
         }
     }
