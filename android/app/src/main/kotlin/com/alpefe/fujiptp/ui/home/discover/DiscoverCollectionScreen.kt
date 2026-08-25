@@ -182,31 +182,39 @@ fun DiscoverCollectionScreen(
                 }
             }
             item {
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    FilledTonalButton(
+                // Integrated action pill: enter/exit selection mode and
+                // import the whole collection.
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(Radius.control))
+                        .background(Surface)
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    TextButton(
                         onClick = {
-                            selection = if (selection.size == collection.recipes.size) emptySet()
-                            else collection.recipes.map { it.name }.toSet()
+                            if (selecting) selection = emptySet()
+                            else selection = collection.recipes.map { it.name }.toSet()
                         },
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(Radius.control),
-                        colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
-                            containerColor = Surface,
-                            contentColor = Ink,
-                        ),
                     ) {
                         Icon(
-                            if (selection.size == collection.recipes.size) Icons.Filled.CheckCircle
-                            else Icons.Filled.RadioButtonUnchecked,
+                            if (selecting) Icons.Filled.RadioButtonUnchecked
+                            else Icons.Filled.CheckCircle,
                             null,
                             Modifier.size(16.dp),
+                            tint = PeachDeep,
                         )
                         Spacer(Modifier.width(6.dp))
-                        Text(if (selection.size == collection.recipes.size) "Ninguna" else "Seleccionar todo")
+                        Text(
+                            if (selecting) "Cancelar" else "Seleccionar",
+                            color = Ink,
+                        )
                     }
+                    Spacer(Modifier.weight(1f))
                     FilledTonalButton(
                         onClick = { importBatch = true },
-                        modifier = Modifier.weight(1f),
+                        enabled = selection.isNotEmpty() || !selecting,
                         shape = RoundedCornerShape(Radius.control),
                         colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
                             containerColor = Peach,
@@ -215,7 +223,10 @@ fun DiscoverCollectionScreen(
                     ) {
                         Icon(Icons.Filled.Download, null, Modifier.size(16.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text("Importar todo")
+                        Text(
+                            if (selection.isNotEmpty()) "Importar (${selection.size})"
+                            else "Importar todo",
+                        )
                     }
                 }
             }
