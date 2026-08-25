@@ -225,6 +225,19 @@ fn write_recipe(slot: u8, recipe_json: &str) -> Result<(), String> {
         .map_err(|e| format!("write recipe C{slot} failed: {e:?}"))
 }
 
+/// Like [write_recipe] but skips the slot name: the camera keeps its own
+/// name. Used by the Android app when pushing recipes so names are never
+/// garbled (renames are explicit via write_recipe_names).
+fn write_recipe_settings(slot: u8, recipe_json: &str) -> Result<(), String> {
+    let recipe = serde_json::from_str(recipe_json).map_err(|e| format!("bad recipe JSON: {e}"))?;
+    let mut guard = lock_controller();
+    let controller = guard.as_mut().ok_or("not connected")?;
+    controller
+        .fuji
+        .write_recipe_settings(slot, &recipe)
+        .map_err(|e| format!("write recipe settings C{slot} failed: {e:?}"))
+}
+
 /// Writes only the names of the 7 slots, preserving every other camera value.
 fn write_recipe_names(names_json: &str) -> Result<(), String> {
     let names: Vec<String> =
@@ -334,6 +347,25 @@ pub extern "system" fn Java_com_alpefe_fujiptp_FujiNative_nativeWriteRecipe(
     clear_pending_exception(&env);
     let result = unsafe { json_param(&mut env, recipe_json) }
         .and_then(|json| write_recipe(slot.max(1) as u8, &json));
+    let json = match result {
+        Ok(()) => ok_json(),
+        Err(e) => err_json(e),
+    };
+    env.new_string(json).expect("JNI string").into_raw()
+}
+
+/// nativeWriteRecipeSettings(slot: Int, recipeJson: String): String
+/// Writes recipe settings but NOT the slot name (camera keeps its name).
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_alpefe_fujiptp_FujiNative_nativeWriteRecipeSettings(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    slot: jint,
+    recipe_json: jstring,
+) -> jstring {
+    clear_pending_exception(&env);
+    let result = unsafe { json_param(&mut env, recipe_json) }
+        .and_then(|json| write_recipe_settings(slot.max(1) as u8, &json));
     let json = match result {
         Ok(()) => ok_json(),
         Err(e) => err_json(e),

@@ -82,7 +82,7 @@ class DiscoverParserTest {
         val r = DiscoverRecipe(
             "Newspaper",
             "AcrosYellow",
-            "Film Sim: Acros + Ye · Grain: Strong Small · WB Shift: R -4, B -3 · Highlight: +4 · Shadow: +4 · Sharpness: +2 · Clarity: 0 · NR: 0",
+            "Film Simulation: Acros + Ye · Grain Effect: Strong · Grain Size: Small · WB Shift: R -4, B -3 · Highlight Tone: +4 · Shadow Tone: +4 · Sharpness: +2 · Clarity: 0 · High ISO NR: 0",
             "",
         )
         val m = r.toModel()
@@ -93,5 +93,6 @@ class DiscoverParserTest {
         assertEquals(4f, m.highlight)
         assertEquals(4f, m.shadow)
         assertEquals(2f, m.sharpness)
+        assertEquals(0, m.noiseReduction)
     }
 }

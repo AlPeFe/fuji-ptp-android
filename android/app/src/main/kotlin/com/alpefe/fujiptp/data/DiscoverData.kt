@@ -50,13 +50,15 @@ data class DiscoverRecipe(
         }
 
         // Grain: "grain: strong large" / "grain effect: strong, small" /
-        // "grain weak small" / "grain: off"
+        // "grain weak small" / "grain: off" / "grain effect: strong" +
+        // "grain size: small"
         val grainSection = segment("grain")
+        val grainSizeSection = segment("grain size")
         val grain = when {
-            grainSection.contains("strong") && grainSection.contains("large") -> GrainEffect.StrongLarge
-            grainSection.contains("weak") && grainSection.contains("large") -> GrainEffect.WeakLarge
-            grainSection.contains("strong") && grainSection.contains("small") -> GrainEffect.StrongSmall
-            grainSection.contains("weak") && grainSection.contains("small") -> GrainEffect.WeakSmall
+            grainSection.contains("strong") && (grainSection.contains("large") || grainSizeSection.contains("large")) -> GrainEffect.StrongLarge
+            grainSection.contains("weak") && (grainSection.contains("large") || grainSizeSection.contains("large")) -> GrainEffect.WeakLarge
+            grainSection.contains("strong") && (grainSection.contains("small") || grainSizeSection.contains("small")) -> GrainEffect.StrongSmall
+            grainSection.contains("weak") && (grainSection.contains("small") || grainSizeSection.contains("small")) -> GrainEffect.WeakSmall
             else -> GrainEffect.Off
         }
 
@@ -110,8 +112,8 @@ data class DiscoverRecipe(
             }
             return null
         }
-        val highlight = toneValue("h") ?: toneValue("highlight")
-        val shadow = toneValue("s") ?: toneValue("shadow")
+        val highlight = toneValue("h") ?: toneValue("highlight") ?: toneValue("highlight tone")
+        val shadow = toneValue("s") ?: toneValue("shadow") ?: toneValue("shadow tone")
 
         return RecipeModel(
             name = name,
@@ -306,7 +308,7 @@ object DiscoverData {
                 r(
                     "Newspaper",
                     "AcrosYellow",
-                    "Film Sim: Acros + Ye · Grain: Strong Small · WB Shift: R -4, B -3 · Highlight: +4 · Shadow: +4 · Sharpness: +2 · Clarity: 0 · NR: 0 · Look de prensa B/N de los 70-80",
+                    "Film Simulation: Acros + Ye · Grain Effect: Strong · Grain Size: Small · WB Shift: R -4, B -3 · Highlight Tone: +4 · Shadow Tone: +4 · Sharpness: +2 · Clarity: 0 · High ISO NR: 0 · Look de prensa B/N de los 70-80",
                     "https://www.kevinmullinsphotography.co.uk/blog/fujifilm-recipe-black-and-white",
                 ),
             ),

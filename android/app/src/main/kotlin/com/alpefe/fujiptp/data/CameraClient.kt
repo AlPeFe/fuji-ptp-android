@@ -55,6 +55,11 @@ class CameraClient(private val bridge: UsbIo) {
         nativeOk(FujiNative.nativeWriteRecipe(slot, recipe.toNativeJson())) { "write C$slot" }
     }
 
+    /** Writes recipe settings only; the camera keeps its slot name. */
+    fun writeRecipeSettings(slot: Int, recipe: RecipeModel): Result<String> = runCatching {
+        nativeOk(FujiNative.nativeWriteRecipeSettings(slot, recipe.toNativeJson())) { "write settings C$slot" }
+    }
+
     fun writeRecipeNames(names: List<String>): Result<String> = runCatching {
         val payload = JSONArray().apply { names.forEach { put(it) } }.toString()
         nativeOk(FujiNative.nativeWriteRecipeNames(payload)) { "write names" }

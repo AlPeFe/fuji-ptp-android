@@ -17,6 +17,7 @@ object FujiNative {
     external fun nativeCloseSession(): String
     external fun nativeReadRecipes(): String
     external fun nativeWriteRecipe(slot: Int, recipeJson: String): String
+    external fun nativeWriteRecipeSettings(slot: Int, recipeJson: String): String
     external fun nativeWriteRecipeNames(namesJson: String): String
     external fun nativeClose(): String
 }
