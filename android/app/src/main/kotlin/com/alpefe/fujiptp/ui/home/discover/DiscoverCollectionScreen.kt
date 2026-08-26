@@ -217,7 +217,19 @@ fun DiscoverCollectionScreen(
                     }
                     Spacer(Modifier.weight(1f))
                     FilledTonalButton(
-                        onClick = { importBatch = true },
+                        onClick = {
+                            if (selection.isNotEmpty()) {
+                                // Import selected recipes into a chosen collection.
+                                importBatch = true
+                            } else {
+                                // Import the WHOLE collection into a brand-new
+                                // collection with the same name.
+                                viewModel.importDiscoverCollectionAsNew(
+                                    collection.name,
+                                    collection.recipes.map { it.name to it.filmSimulation },
+                                )
+                            }
+                        },
                         enabled = selection.isNotEmpty() || !selecting,
                         shape = RoundedCornerShape(Radius.control),
                         colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(

@@ -520,6 +520,39 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /**
+     * Imports a whole Discover collection into a brand-new library collection
+     * that shares the Discover collection's name.
+     */
+    fun importDiscoverCollectionAsNew(collectionName: String, recipes: List<Pair<String, String>>) {
+        viewModelScope.launch {
+            val newId = withContext(Dispatchers.IO) {
+                repo.createCollection(collectionName, 0xFFD982A0)
+            }
+            if (newId <= 0) {
+                notifyUser("No se pudo crear la colección")
+                return@launch
+            }
+            var count = 0
+            for ((name, filmSimulation) in recipes) {
+                val discover = com.alpefe.fujiptp.data.DiscoverData.collections
+                    .flatMap { it.recipes }
+                    .firstOrNull { it.name == name && it.filmSimulation == filmSimulation }
+                val recipe = discover?.toModel()
+                    ?: RecipeModel(
+                        name = name,
+                        filmSimulation = com.alpefe.fujiptp.data.FilmSimulation.entries
+                            .firstOrNull { it.name == filmSimulation }
+                            ?: com.alpefe.fujiptp.data.FilmSimulation.ClassicChrome,
+                    )
+                val id = withContext(Dispatchers.IO) { repo.save(recipe, newId) }
+                if (id > 0) count++
+            }
+            notifyUser("Colección «$collectionName» creada con $count recipes")
+            push(Screen.Collection(newId, collectionName))
+        }
+    }
+
     fun renameCollection(id: Long, name: String) {
         viewModelScope.launch {
             withContext(Dispatchers.IO) { repo.renameCollection(id, name) }
