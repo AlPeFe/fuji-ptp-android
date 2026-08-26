@@ -201,32 +201,38 @@ fun FujiApp(viewModel: FujiViewModel = viewModel()) {
 private fun FeedbackBanner(feedback: FujiViewModel.Feedback?) {
     var visibleFeedback by remember { mutableStateOf(feedback) }
 
+    // Show the new feedback; hide it automatically after a couple of seconds.
     LaunchedEffect(feedback) {
         if (feedback != null) {
             visibleFeedback = feedback
             delay(2600)
-            // No auto-clear needed; the next event replaces it. Keep it visible
-            // until the next feedback arrives.
+            visibleFeedback = null
         }
     }
 
-    if (visibleFeedback == null) return
-    val isError = visibleFeedback!!.isError
-    val accent = if (isError) Danger else PastelGreen
+    // Hide when the source clears too.
+    LaunchedEffect(feedback) {
+        if (feedback == null) {
+            visibleFeedback = null
+        }
+    }
+
+    val current = visibleFeedback ?: return
+    val isError = current.isError
+    val accent = if (isError) Danger else PastelGreenDeep
     val icon = if (isError) Icons.Filled.Error else Icons.Filled.CheckCircle
 
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
         AnimatedVisibility(
-            visible = true,
-            enter = slideInVertically(tween(280)) { -it } + fadeIn(tween(220)),
-            exit = slideOutVertically(tween(220)) { -it } + fadeOut(tween(180)),
+            visible = visibleFeedback != null,
+            enter = slideInVertically(tween(280)) { it } + fadeIn(tween(220)),
+            exit = slideOutVertically(tween(220)) { it } + fadeOut(tween(180)),
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
-                    .statusBarsPadding()
                     .navigationBarsPadding()
-                    .padding(horizontal = 20.dp, vertical = 12.dp)
+                    .padding(bottom = 16.dp, start = 20.dp, end = 20.dp)
                     .clip(RoundedCornerShape(20.dp))
                     .background(Surface.copy(alpha = 0.97f))
                     .padding(horizontal = 18.dp, vertical = 12.dp),
@@ -239,7 +245,7 @@ private fun FeedbackBanner(feedback: FujiViewModel.Feedback?) {
                 )
                 Spacer(Modifier.width(10.dp))
                 Text(
-                    visibleFeedback!!.message,
+                    current.message,
                     style = MaterialTheme.typography.bodyMedium,
                     color = Ink,
                 )
