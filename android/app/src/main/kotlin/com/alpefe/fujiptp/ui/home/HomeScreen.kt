@@ -28,9 +28,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.SwapHoriz
@@ -38,6 +40,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
@@ -70,6 +73,7 @@ import com.alpefe.fujiptp.ui.components.SlotPickerDialog
 import com.alpefe.fujiptp.ui.components.filmTint
 import com.alpefe.fujiptp.ui.theme.Canvas
 import com.alpefe.fujiptp.ui.theme.Ink
+import com.alpefe.fujiptp.ui.theme.Danger
 import com.alpefe.fujiptp.ui.theme.InkSoft
 import com.alpefe.fujiptp.ui.theme.PastelGreen
 import com.alpefe.fujiptp.ui.theme.PastelGreenDeep
@@ -78,6 +82,7 @@ import com.alpefe.fujiptp.ui.theme.PeachDeep
 import com.alpefe.fujiptp.ui.theme.Radius
 import com.alpefe.fujiptp.ui.theme.SoftBlue
 import com.alpefe.fujiptp.ui.theme.SoftBlueDeep
+import com.alpefe.fujiptp.ui.theme.Success
 import com.alpefe.fujiptp.ui.theme.Surface
 import com.alpefe.fujiptp.ui.theme.SurfaceSoft
 
@@ -89,6 +94,7 @@ fun HomeScreen(viewModel: FujiViewModel) {
     val cameraLabel by viewModel.cameraLabel.collectAsStateWithLifecycle()
     val busy by viewModel.busy.collectAsStateWithLifecycle()
     val backlog by viewModel.backlog.collectAsStateWithLifecycle()
+    val slotStatus by viewModel.slotStatus.collectAsStateWithLifecycle()
 
     var sendRecipe by remember { mutableStateOf<RecipeModel?>(null) }
 
@@ -154,9 +160,11 @@ fun HomeScreen(viewModel: FujiViewModel) {
             }
         }
         items(slots, key = { it.index }) { slot ->
+            val status = slotStatus?.takeIf { it.slot == slot.index }
             SlotCard(
                 slot = slot,
                 connected = connected,
+                status = status?.state,
                 onOpen = { viewModel.push(Screen.Editor(slot.recipe?.id, slot.index)) },
                 onSend = { recipe -> viewModel.sendToSlot(slot.index, recipe) },
                 // Asignar desde la biblioteca: navega ahí (donde podrás elegir
@@ -337,6 +345,7 @@ private fun CameraCard(
 private fun SlotCard(
     slot: SlotUi,
     connected: Boolean,
+    status: String?,
     onOpen: () -> Unit,
     onSend: (RecipeModel) -> Unit,
     onAssign: () -> Unit,
@@ -376,12 +385,31 @@ private fun SlotCard(
                     .background(if (recipe != null) tint else Surface.copy(alpha = 0.8f)),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(
-                    text = "C${slot.index}",
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = if (recipe != null) MaterialTheme.colorScheme.primary else InkSoft,
-                )
+                when (status) {
+                    "sending" -> CircularProgressIndicator(
+                        Modifier.size(22.dp),
+                        strokeWidth = 3.dp,
+                        color = PeachDeep,
+                    )
+                    "ok" -> Icon(
+                        Icons.Filled.CheckCircle,
+                        contentDescription = "Enviada",
+                        tint = Success,
+                        modifier = Modifier.size(26.dp),
+                    )
+                    "error" -> Icon(
+                        Icons.Filled.Error,
+                        contentDescription = "Error",
+                        tint = Danger,
+                        modifier = Modifier.size(26.dp),
+                    )
+                    else -> Text(
+                        text = "C${slot.index}",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = if (recipe != null) MaterialTheme.colorScheme.primary else InkSoft,
+                    )
+                }
             }
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {

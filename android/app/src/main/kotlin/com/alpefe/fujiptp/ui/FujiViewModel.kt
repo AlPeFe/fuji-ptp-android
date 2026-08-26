@@ -136,7 +136,24 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
 
     // --- transient UI state ------------------------------------------------
     val connected = MutableStateFlow(false)
-    val busy = MutableStateFlow(false)
+
+    /** Current blocking action label, or null when idle. Drives the loader. */
+    val busyState = MutableStateFlow<String?>(null)
+    val busy: StateFlow<Boolean> = busyState.map { it != null }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    /** Action result feedback: message + type (success/error), null when none. */
+    data class Feedback(val message: String, val isError: Boolean)
+
+    private val _feedback = MutableStateFlow<Feedback?>(null)
+    val feedback: StateFlow<Feedback?> = _feedback
+
+    /** Per-slot transient status: which slot, what state. */
+    data class SlotStatus(val slot: Int, val state: String) // "sending" | "ok" | "error"
+
+    private val _slotStatus = MutableStateFlow<SlotStatus?>(null)
+    val slotStatus: StateFlow<SlotStatus?> = _slotStatus
+
     val devicePresent = MutableStateFlow(false)
     val cameraLabel = MutableStateFlow<String?>(null)
     val messages = Channel<String>(Channel.BUFFERED)
@@ -162,16 +179,27 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Success feedback (visual, non-toast). */
     fun notifyUser(message: String) {
-        messages.trySend(message)
+        _feedback.value = Feedback(message, isError = false)
     }
 
-    private suspend fun <T> withBusy(block: suspend () -> T): T {
-        busy.value = true
+    /** Error feedback (visual, non-toast). */
+    fun notifyError(message: String) {
+        _feedback.value = Feedback(message, isError = true)
+    }
+
+    /** Dismisses the feedback banner (called after its animation). */
+    fun clearFeedback() {
+        if (_feedback.value != null) _feedback.value = null
+    }
+
+    private suspend fun <T> withBusy(label: String, block: suspend () -> T): T {
+        busyState.value = label
         return try {
             block()
         } finally {
-            busy.value = false
+            busyState.value = null
         }
     }
 
@@ -191,7 +219,7 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
     fun connectRequested() {
         val device = usbManager.findPtpCamera()
         if (device == null) {
-            notifyUser("No se detectó ninguna cámara Fujifilm. Conéctala por USB en modo RAW CONV./BACKUP RESTORE.")
+            notifyError("No se detectó ninguna cámara Fujifilm. Conéctala por USB en modo RAW CONV./BACKUP RESTORE.")
             return
         }
         if (usbManager.hasPermission(device)) {
@@ -203,7 +231,7 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun connectWithBridge(device: UsbDevice) {
         viewModelScope.launch {
-            withBusy {
+            withBusy("Conectando cámara…") {
                 try {
                     val io = withContext(Dispatchers.IO) { usbManager.openBridge(device) }
                     val camera = CameraClient(io)
@@ -217,7 +245,7 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
                     // la sesión; esperamos antes de leer propiedades.
                     kotlinx.coroutines.delay(600)
                 } catch (e: Exception) {
-                    notifyUser("Error de conexión: ${e.message ?: "desconocido"}")
+                    notifyError("Error de conexión: ${e.message ?: "desconocido"}")
                     connected.value = false
                 }
             }
@@ -228,7 +256,7 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
 
     fun disconnect() {
         viewModelScope.launch {
-            withBusy {
+            withBusy("Desconectando…") {
                 val camera = client
                 val io = bridge
                 withContext(Dispatchers.IO) {
@@ -268,7 +296,7 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
 
     fun onBridgeReady(io: UsbIo) {
         viewModelScope.launch {
-            withBusy {
+            withBusy("Conectando…") {
                 try {
                     val camera = CameraClient(io)
                     withContext(Dispatchers.IO) { camera.connect() }
@@ -281,7 +309,7 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
                     // la sesión; esperamos antes de leer propiedades.
                     kotlinx.coroutines.delay(600)
                 } catch (e: Exception) {
-                    notifyUser("Error de conexión: ${e.message ?: "desconocido"}")
+                    notifyError("Error de conexión: ${e.message ?: "desconocido"}")
                     runCatching { io.close() }
                     connected.value = false
                 }
@@ -301,10 +329,10 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             val camera = client
             if (camera == null) {
-                notifyUser("Conecta la cámara primero")
+                notifyError("Conecta la cámara primero")
                 return@launch
             }
-            withBusy {
+            withBusy("Leyendo C1–C7…") {
                 try {
                     val recipes = withContext(Dispatchers.IO) { camera.readRecipes() }.getOrThrow()
                     // Kept in memory only: shown in the profile. Loading from
@@ -314,7 +342,7 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
                     pendingOverrides.value = emptyMap()
                     notifyUser("C1–C7 leídos de la cámara")
                 } catch (e: Exception) {
-                    notifyUser("Error leyendo recipes: ${e.message ?: "desconocido"}")
+                    notifyError("Error leyendo recipes: ${e.message ?: "desconocido"}")
                     // The PTP session may be in a bad state; reset it so the
                     // next operation (reconnect) starts clean.
                     resetNativeSession()
@@ -326,12 +354,12 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
     /** Saves a camera recipe into the library (from the "En la cámara" view). */
     fun saveCameraRecipe(slot: Int, recipe: RecipeModel) {
         viewModelScope.launch {
-            withBusy {
+            withBusy("Guardando recipe…") {
                 try {
                     withContext(Dispatchers.IO) { repo.saveSlotRecipe(recipe, slot) }
                     notifyUser("«${recipe.name}» guardada en la biblioteca")
                 } catch (e: Exception) {
-                    notifyUser("Error al guardar: ${e.message ?: "desconocido"}")
+                    notifyError("Error al guardar: ${e.message ?: "desconocido"}")
                 }
             }
         }
@@ -342,11 +370,11 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             val camera = client
             if (camera == null) {
-                notifyUser("Conecta la cámara primero")
+                notifyError("Conecta la cámara primero")
                 return@launch
             }
             val current = slots.value
-            withBusy {
+            withBusy("Enviando recipes…") {
                 var ok = 0
                 var failed = 0
                 for (slot in 1..7) {
@@ -379,22 +407,28 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             val camera = client
             if (camera == null) {
-                notifyUser("Conecta la cámara primero")
+                notifyError("Conecta la cámara primero")
                 return@launch
             }
-            withBusy {
+            withBusy("Enviando a la cámara…") {
                 try {
+                    _slotStatus.value = SlotStatus(slot, "sending")
                     // Full write (incl. name): needed to materialize the
                     // recipe in the slot.
                     withContext(Dispatchers.IO) { camera.writeRecipe(slot, recipe) }
                     // The camera now has it: drop any pending override for
                     // that slot and refresh the profile.
                     pendingOverrides.value = pendingOverrides.value - slot
+                    _slotStatus.value = SlotStatus(slot, "ok")
                     notifyUser("Recipe enviada a C$slot")
                     readFromCamera()
                 } catch (e: Exception) {
-                    notifyUser("Error escribiendo C$slot: ${e.message ?: "desconocido"}")
+                    _slotStatus.value = SlotStatus(slot, "error")
+                    notifyError("Error escribiendo C$slot: ${e.message ?: "desconocido"}")
                 }
+                // Clear the slot status shortly after.
+                kotlinx.coroutines.delay(2200)
+                _slotStatus.value = null
             }
         }
     }
@@ -404,21 +438,21 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             val camera = client
             if (camera == null) {
-                notifyUser("Conecta la cámara primero")
+                notifyError("Conecta la cámara primero")
                 return@launch
             }
             val recipe = repo.get(recipeId)
             if (recipe == null) {
-                notifyUser("Recipe no encontrada")
+                notifyError("Recipe no encontrada")
                 return@launch
             }
-            withBusy {
+            withBusy("Enviando a la cámara…") {
                 try {
                     withContext(Dispatchers.IO) { camera.writeRecipe(slot, recipe) }
                     pendingOverrides.value = pendingOverrides.value - slot
                     notifyUser("Recipe enviada a C$slot")
                 } catch (e: Exception) {
-                    notifyUser("Error escribiendo C$slot: ${e.message ?: "desconocido"}")
+                    notifyError("Error escribiendo C$slot: ${e.message ?: "desconocido"}")
                 }
             }
         }
@@ -431,7 +465,7 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
 
     fun saveRecipe(recipe: RecipeModel, assignOnSave: Int?, collectionId: Long?) {
         viewModelScope.launch {
-            withBusy {
+            withBusy("Guardando recipe…") {
                 val id = withContext(Dispatchers.IO) { repo.save(recipe, collectionId) }
                 if (assignOnSave != null) {
                     withContext(Dispatchers.IO) { repo.assignToSlot(assignOnSave, id) }
@@ -475,12 +509,12 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
      */
     fun assignToSlot(slot: Int, recipeId: Long) {
         if (cameraRecipesInternal.value == null) {
-            notifyUser("Conecta la cámara para poder asignar a un slot")
+            notifyError("Conecta la cámara para poder asignar a un slot")
             return
         }
         val recipe = backlog.value.firstOrNull { it.id == recipeId }
         if (recipe == null) {
-            notifyUser("Recipe no encontrada")
+            notifyError("Recipe no encontrada")
             return
         }
         pendingOverrides.value = pendingOverrides.value + (slot to recipe)
@@ -490,7 +524,7 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
     /** Removes a pending override for a slot (falls back to the camera value). */
     fun clearSlot(slot: Int) {
         val cam = cameraRecipesInternal.value ?: run {
-            notifyUser("Conecta la cámara para modificar el perfil")
+            notifyError("Conecta la cámara para modificar el perfil")
             return
         }
         val overrides = pendingOverrides.value
@@ -530,7 +564,7 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
                 repo.createCollection(collectionName, 0xFFD982A0)
             }
             if (newId <= 0) {
-                notifyUser("No se pudo crear la colección")
+                notifyError("No se pudo crear la colección")
                 return@launch
             }
             var count = 0
@@ -566,7 +600,7 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
                 if (selectedCollectionId.value == id) selectedCollectionId.value = null
                 notifyUser("Colección eliminada")
             } else {
-                notifyUser("La colección por defecto no se puede eliminar")
+                notifyError("La colección por defecto no se puede eliminar")
             }
         }
     }
