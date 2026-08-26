@@ -112,14 +112,18 @@ class UsbIoBridge(
     private val bulkIn: UsbEndpoint,
     private val bulkOut: UsbEndpoint,
 ) : UsbIo {
-    override fun send(data: ByteArray): Int =
-        connection.bulkTransfer(bulkOut, data, data.size, TIMEOUT)
+    override fun send(data: ByteArray): Int {
+        val count = connection.bulkTransfer(bulkOut, data, data.size, TIMEOUT)
+        android.util.Log.d(TAG, "USB TX ${data.size}B -> $count (first ${data.take(12).joinToString { "%02x".format(it) }})")
+        return count
+    }
 
     override fun receive(size: Int): ByteArray {
         // `size` is always a full bulk packet (512) from the Rust transport,
         // so a single bulkTransfer never drops trailing bytes.
         val buffer = ByteArray(size)
         val count = connection.bulkTransfer(bulkIn, buffer, size, TIMEOUT)
+        android.util.Log.d(TAG, "USB RX <- $count of $size (first ${buffer.take(12).joinToString { "%02x".format(it) }})")
         check(count >= 0) { "USB receive failed: $count" }
         return buffer.copyOf(count)
     }
@@ -133,5 +137,6 @@ class UsbIoBridge(
         // Generous timeout: the X100VI can take several seconds to answer
         // the first property reads after OPEN_SESSION.
         private const val TIMEOUT = 10000
+        private const val TAG = "FujiPtpUsb"
     }
 }

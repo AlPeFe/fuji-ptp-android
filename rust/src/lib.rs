@@ -19,7 +19,7 @@
 //! fuji-ptp-core::FujiPtp  (protocol + serde DTOs, feature "serde")
 //! ```
 
-use std::ffi::c_void;
+use std::ffi::{c_char, c_void, CString};
 use std::sync::{Mutex, OnceLock};
 
 use fuji_ptp_core::ptp::FujiPtp;
@@ -28,6 +28,30 @@ use fuji_ptp_core::transport::{Transport, TransportError};
 use jni::objects::{GlobalRef, JByteArray, JObject, JString, JValue, JValueOwned};
 use jni::sys::{JNI_VERSION_1_6, jint, jstring};
 use jni::{JNIEnv, JavaVM};
+
+// ---------------------------------------------------------------------------
+// Android logging (logcat tag: FujiPtpNative). No-op on host builds.
+// ---------------------------------------------------------------------------
+
+#[cfg(target_os = "android")]
+unsafe extern "C" {
+    fn __android_log_write(prio: i32, tag: *const c_char, text: *const c_char) -> i32;
+}
+
+#[cfg(target_os = "android")]
+const ANDROID_LOG_INFO: i32 = 4;
+
+#[cfg(target_os = "android")]
+fn log_info(msg: &str) {
+    let tag = CString::new("FujiPtpNative").unwrap();
+    let text = CString::new(msg).unwrap();
+    unsafe {
+        __android_log_write(ANDROID_LOG_INFO, tag.as_ptr(), text.as_ptr());
+    }
+}
+
+#[cfg(not(target_os = "android"))]
+fn log_info(_msg: &str) {}
 
 // ---------------------------------------------------------------------------
 // Global state
@@ -83,8 +107,15 @@ impl AndroidTransport {
             .map_err(|_| TransportError::ReceiveError)?;
         let object = result.l().map_err(|_| TransportError::ReceiveError)?;
         let array = JByteArray::from(object);
-        env.convert_byte_array(&array)
-            .map_err(|_| TransportError::ReceiveError)
+        let bytes = env
+            .convert_byte_array(&array)
+            .map_err(|_| TransportError::ReceiveError)?;
+        log_info(&format!(
+            "RX asked={size} got={} first={:02x?}",
+            bytes.len(),
+            &bytes[..bytes.len().min(12)]
+        ));
+        Ok(bytes)
     }
 
     fn call_send(&self, data: &[u8]) -> Result<(), TransportError> {
@@ -100,7 +131,13 @@ impl AndroidTransport {
             .call_method(&self.bridge, "send", "([B)I", &[JValue::Object(&object)])
             .map_err(|_| TransportError::SendError)?;
         match result.i() {
-            Ok(written) if written >= 0 => Ok(()),
+            Ok(written) if written >= 0 => {
+                log_info(&format!(
+                    "TX sent={written} bytes first={:02x?}",
+                    &data[..data.len().min(12)]
+                ));
+                Ok(())
+            }
             _ => Err(TransportError::SendError),
         }
     }
@@ -229,6 +266,7 @@ fn write_recipe(slot: u8, recipe_json: &str) -> Result<(), String> {
 /// name. Used by the Android app when pushing recipes so names are never
 /// garbled (renames are explicit via write_recipe_names).
 fn write_recipe_settings(slot: u8, recipe_json: &str) -> Result<(), String> {
+    log_info(&format!("write_recipe_settings slot=C{slot} json={recipe_json}"));
     let recipe = serde_json::from_str(recipe_json).map_err(|e| format!("bad recipe JSON: {e}"))?;
     let mut guard = lock_controller();
     let controller = guard.as_mut().ok_or("not connected")?;

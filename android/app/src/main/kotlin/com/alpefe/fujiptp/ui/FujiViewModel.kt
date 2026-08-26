@@ -352,9 +352,10 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
                     val recipe = current[slot - 1].recipe
                     try {
                         // Empty recipe = clear that slot on the camera.
-                        // Settings only: the camera keeps its slot names.
+                        // Full write (incl. name): the camera needs the slot
+                        // name to materialize a recipe in an empty slot.
                         withContext(Dispatchers.IO) {
-                            camera.writeRecipeSettings(slot, recipe ?: RecipeModel(name = ""))
+                            camera.writeRecipe(slot, recipe ?: RecipeModel(name = ""))
                         }
                         ok++
                     } catch (e: Exception) {
@@ -382,8 +383,9 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
             }
             withBusy {
                 try {
-                    // Settings only: the camera keeps its slot name.
-                    withContext(Dispatchers.IO) { camera.writeRecipeSettings(slot, recipe) }
+                    // Full write (incl. name): needed to materialize the
+                    // recipe in the slot.
+                    withContext(Dispatchers.IO) { camera.writeRecipe(slot, recipe) }
                     // The camera now has it: drop any pending override for
                     // that slot and refresh the profile.
                     pendingOverrides.value = pendingOverrides.value - slot
