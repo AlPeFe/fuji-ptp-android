@@ -605,6 +605,27 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Deletes several collections at once (default is skipped by the repo). */
+    fun deleteCollections(ids: List<Long>) {
+        viewModelScope.launch {
+            var count = 0
+            var skippedDefault = false
+            for (id in ids) {
+                val deleted = withContext(Dispatchers.IO) { repo.deleteCollection(id) }
+                if (deleted) {
+                    if (selectedCollectionId.value == id) selectedCollectionId.value = null
+                    count++
+                } else {
+                    skippedDefault = true
+                }
+            }
+            notifyUser(
+                if (skippedDefault) "$count eliminadas · la por defecto no se puede borrar"
+                else "$count colecciones eliminadas"
+            )
+        }
+    }
+
     fun addToCollection(recipeId: Long, collectionId: Long) {
         viewModelScope.launch {
             withContext(Dispatchers.IO) { repo.addRecipeToCollection(recipeId, collectionId) }
