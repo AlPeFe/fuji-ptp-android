@@ -270,11 +270,11 @@ object DiscoverData {
             colorHex = 0xFF463A66,
             source = "https://www.osan-bilgi.com/fujifilm-recipes",
             recipes = listOf(
-                r("Classic Cuban Negative", "ClassicNegative", "Negativo cubano clásico", "https://www.osan-bilgi.com/classic-cuban-negative"),
-                r("Cubanace", "ClassicNegative", "Cuba con toque Reala Ace", "https://www.osan-bilgi.com/cubanace"),
-                r("Summer Chrome", "ClassicChrome", "Chrome veraniego, luminoso", "https://www.osan-bilgi.com/summer-chrome"),
-                r("Vibrant Astia Soft", "Astia", "Astia suave y vibrante", "https://www.osan-bilgi.com/vibrant-astia-soft"),
-                r("Alpine Negative", "ClassicNegative", "Alpino, verde frío", "https://www.osan-bilgi.com/alpine-negative"),
+                r("Classic Cuban Negative", "ClassicNegative", "Film Simulation: Classic Negative · Dynamic Range: DR400 · Grain Effect: Strong, Large · Color Chrome Effect: Strong · Color Chrome FX Blue: Strong · White Balance: Auto, -5 Blue & +4 Red · Highlight: -2 · Shadow: +1 · Color: +4 · Sharpness: 0 · High ISO NR: -4 · Clarity: -4", "https://www.osan-bilgi.com/classic-cuban-negative"),
+                r("Cubanace", "RealaAce", "Film Simulation: Reala Ace · Dynamic Range: DR400 · Grain Effect: Strong, Large · Color Chrome Effect: Strong · Color Chrome FX Blue: Strong · White Balance: Auto, -5 Blue & +4 Red · Highlight: -2 · Shadow: +1.5 · Color: +1 · Sharpness: 0 · High ISO NR: -4 · Clarity: -4", "https://www.osan-bilgi.com/cubanace"),
+                r("Summer Chrome", "ClassicChrome", "Film Simulation: Classic Chrome · Dynamic Range: DR400 · Grain Effect: Strong, Large · Color Chrome Effect: Strong · Color Chrome FX Blue: Strong · White Balance: Auto, -6 Blue & +5 Red · Highlight: -2 · Shadow: -2 · Color: +4 · Sharpness: 0 · High ISO NR: -4 · Clarity: -4", "https://www.osan-bilgi.com/summer-chrome"),
+                r("Vibrant Astia Soft", "Astia", "Film Simulation: Astia Soft · Dynamic Range: DR400 · Grain Effect: Strong, Large · Color Chrome Effect: Strong · Color Chrome FX Blue: Weak · White Balance: Auto, -2 Blue & +2 Red · Highlight: -2 · Shadow: +1 · Color: +1 · Sharpness: -2 · High ISO NR: -4 · Clarity: -4", "https://www.osan-bilgi.com/vibrant-astia-soft"),
+                r("Alpine Negative", "ClassicNegative", "Film Simulation: Classic Negative · Dynamic Range: DR400 · Grain Effect: Off · Color Chrome Effect: Off · Color Chrome FX Blue: Strong · White Balance: Auto, -4 Blue & +2 Red · Highlight: -2 · Shadow: +1 · Color: +4 · Sharpness: 0 · High ISO NR: -4 · Clarity: -3", "https://www.osan-bilgi.com/alpine-negative"),
             ),
         ),
         // --- Alex Armitage (real) -------------------------------------------
@@ -286,11 +286,11 @@ object DiscoverData {
             colorHex = 0xFF5A3826,
             source = "https://www.alexarmitage.com/fuji-x100vi-recipes",
             recipes = listOf(
-                r("Kodak Portra 800", "ClassicChrome", "Portra 800 con DR400 y grano fuerte", "https://www.alexarmitage.com/fuji-x100vi-recipes"),
-                r("Kodak Gold 200", "ClassicChrome", "Gold 200, dorado cálido", "https://www.alexarmitage.com/fuji-x100vi-recipes"),
-                r("Wes Anderson", "ClassicChrome", "Look Wes Anderson, 4350K", "https://www.alexarmitage.com/fuji-x100vi-recipes"),
-                r("1970's Summer", "NostalgicNegative", "Verano 70s, nostálgico", "https://www.alexarmitage.com/fuji-x100vi-recipes"),
-                r("Gentle Reala Ace", "RealaAce", "Reala Ace suave y natural", "https://www.alexarmitage.com/fuji-x100vi-recipes"),
+                r("Kodak Portra 800", "ClassicChrome", "Film Simulation: Classic Chrome · Dynamic Range: DR400 · Grain Effect: Strong, Large · Color Chrome Effect: Strong · Color Chrome FX Blue: Off · White Balance: 6600K, -1 Red & -3 Blue · Highlight: -2 · Shadow: -0.5 · Color: +3 · Sharpness: -2 · High ISO NR: -4 · Clarity: -3", "https://www.alexarmitage.com/fuji-x100vi-recipes"),
+                r("Kodak Gold 200", "ClassicChrome", "Film Simulation: Classic Chrome · Grain Effect: Strong, Small · Color Chrome Effect: Weak · Color Chrome FX Blue: Off · White Balance: Daylight, +4 Red & -5 Blue · Dynamic Range: DR400 · Highlight: -1.5 · Shadow: +0.5 · Color: +3 · Sharpness: -2 · High ISO NR: -4 · Clarity: -2", "https://www.alexarmitage.com/fuji-x100vi-recipes"),
+                r("Wes Anderson", "ClassicChrome", "Film Simulation: Classic Chrome · Grain Effect: Weak, Small · Color Chrome Effect: Off · Color Chrome FX Blue: Weak · White Balance: 4350K, +6 Red & -8 Blue · Dynamic Range: DR-P Strong · Color: +4 · Sharpness: -2 · High ISO NR: -4 · Clarity: -3", "https://www.alexarmitage.com/fuji-x100vi-recipes"),
+                r("1970's Summer", "NostalgicNegative", "Film Simulation: Nostalgic Neg. · Grain Effect: Off, Small · Color Chrome Effect: Strong · Color Chrome FX Blue: Strong · White Balance: 6300K, -1 Red & -4 Blue · Dynamic Range: DR400 · Highlight: -2 · Shadow: -0.5 · Color: -2 · Sharpness: -2 · High ISO NR: -4 · Clarity: -3", "https://www.alexarmitage.com/fuji-x100vi-recipes"),
+                r("Gentle Reala Ace", "RealaAce", "Film Simulation: Reala Ace · Dynamic Range: DR400 · Grain Effect: Weak, Small · Color Chrome Effect: Strong · Color Chrome FX Blue: Weak · White Balance: Auto, 0 Red & 0 Blue · Highlight: -1 · Shadow: 0 · Color: 0 · Sharpness: 0 · High ISO NR: -4 · Clarity: 0", "https://www.alexarmitage.com/fuji-x100vi-recipes"),
             ),
         ),
         // --- Reggie's (real) -------------------------------------------------
@@ -302,7 +302,7 @@ object DiscoverData {
             colorHex = 0xFF4E442C,
             source = "https://fujixweekly.com/2026/03/12/reggies-superia-a-fujifilm-recipe-for-x-trans-iv-v-cameras/",
             recipes = listOf(
-                r("Reggie's Superia", "ClassicNegative", "Superia de Reggie, vibrante y versátil", "https://fujixweekly.com/2026/03/12/reggies-superia-a-fujifilm-recipe-for-x-trans-iv-v-cameras/"),
+                r("Reggie's Superia", "ClassicNegative", "Film Simulation: Classic Negative · Dynamic Range: DR-Auto · Grain Effect: Strong, Large · Color Chrome Effect: Strong · Color Chrome FX Blue: Strong · White Balance: Auto, +1 Red & -3 Blue · Highlight: -2 · Shadow: -1 · Color: +1 · Sharpness: -2 · High ISO NR: -4 · Clarity: 0", "https://fujixweekly.com/2026/03/12/reggies-superia-a-fujifilm-recipe-for-x-trans-iv-v-cameras/"),
                 r("Reggie's Portra", "ClassicChrome", "Classic Chrome · DR-Auto · H -1 / S -1 · Color +2 · NR -4 · Sharp -2 · Grain Weak Small · CC Strong · FX Blue Weak · WB Auto +2R/-4B", "https://fujixweekly.com/fujifilm-x-trans-v-recipes/"),
                 r("Reggie's B&W", "AcrosRed", "Film Simulation: Acros + R Filter · Grain Effect: Weak, Small · WB: Auto · Dynamic Range: Auto · DR Priority: Off · Tone Curve: H +2, S +2 · Sharpness: -1 · Noise Reduction: -3 · Clarity: 0", "https://fujixweekly.com/fujifilm-x-trans-v-recipes/"),
             ),

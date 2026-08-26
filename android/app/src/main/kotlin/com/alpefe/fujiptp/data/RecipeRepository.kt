@@ -30,6 +30,11 @@ class RecipeRepository(private val dao: RecipeDao) {
     /** Returns the first recipe with this exact name (used for dedupe). */
     suspend fun findByName(name: String): RecipeEntity? = dao.findByName(name)
 
+    /** Updates an existing recipe's values, keeping its id. */
+    suspend fun updateRecipe(recipe: RecipeModel) {
+        dao.upsert(RecipeEntity.fromModel(recipe, System.currentTimeMillis()))
+    }
+
     suspend fun delete(id: Long) {
         dao.unassignRecipe(id)
         dao.delete(id)

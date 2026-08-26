@@ -569,14 +569,8 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
                 return@launch
             }
             var count = 0
-            var skipped = 0
+            var updated = 0
             for ((name, filmSimulation) in recipes) {
-                // Skip recipes already in the library (same name).
-                val exists = withContext(Dispatchers.IO) { repo.findByName(name) != null }
-                if (exists) {
-                    skipped++
-                    continue
-                }
                 val discover = com.alpefe.fujiptp.data.DiscoverData.collections
                     .flatMap { it.recipes }
                     .firstOrNull { it.name == name && it.filmSimulation == filmSimulation }
@@ -587,11 +581,24 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
                             .firstOrNull { it.name == filmSimulation }
                             ?: com.alpefe.fujiptp.data.FilmSimulation.ClassicChrome,
                     )
+                // If a recipe with this name already exists anywhere in the
+                // library, update its values and add it to the new collection
+                // (fixes previously-imported defaults).
+                val existing = withContext(Dispatchers.IO) { repo.findByName(name) }
+                if (existing != null) {
+                    val updatedRecipe = recipe.copy(id = existing.id)
+                    withContext(Dispatchers.IO) {
+                        repo.updateRecipe(updatedRecipe)
+                        repo.addRecipeToCollection(existing.id, newId)
+                    }
+                    updated++
+                    continue
+                }
                 val id = withContext(Dispatchers.IO) { repo.save(recipe, newId) }
                 if (id > 0) count++
             }
             notifyUser(
-                if (skipped > 0) "Colección «$collectionName» creada: $count nuevas, $skipped ya existían"
+                if (updated > 0) "Colección «$collectionName» creada: $count nuevas, $updated con valores actualizados"
                 else "Colección «$collectionName» creada con $count recipes"
             )
             push(Screen.Collection(newId, collectionName))
@@ -660,13 +667,8 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             var count = 0
             var skipped = 0
+            var updated = 0
             for ((name, filmSimulation) in recipes) {
-                // Skip recipes already in the library (same name).
-                val exists = withContext(Dispatchers.IO) { repo.findByName(name) != null }
-                if (exists) {
-                    skipped++
-                    continue
-                }
                 val discover = com.alpefe.fujiptp.data.DiscoverData.collections
                     .flatMap { it.recipes }
                     .firstOrNull { it.name == name && it.filmSimulation == filmSimulation }
@@ -677,13 +679,23 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
                             .firstOrNull { it.name == filmSimulation }
                             ?: com.alpefe.fujiptp.data.FilmSimulation.ClassicChrome,
                     )
+                // If a recipe with this name already exists, update its values
+                // (fixes recipes previously imported with defaults) instead of
+                // duplicating.
+                val existing = withContext(Dispatchers.IO) { repo.findByName(name) }
+                if (existing != null) {
+                    val updatedRecipe = recipe.copy(id = existing.id)
+                    withContext(Dispatchers.IO) { repo.updateRecipe(updatedRecipe) }
+                    updated++
+                    continue
+                }
                 val id = withContext(Dispatchers.IO) { repo.save(recipe, collectionId) }
                 if (id > 0) count++
             }
             notifyUser(
                 when {
-                    skipped > 0 && count > 0 -> "$count importadas, $skipped ya existían"
-                    skipped > 0 -> "Todas ($skipped) ya estaban en tu biblioteca"
+                    updated > 0 && count > 0 -> "$count nuevas, $updated actualizadas con valores"
+                    updated > 0 -> "$updated recipes actualizadas con sus valores"
                     else -> "$count recipes importadas a tu colección"
                 }
             )
