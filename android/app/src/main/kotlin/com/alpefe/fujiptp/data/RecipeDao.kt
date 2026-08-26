@@ -18,6 +18,9 @@ interface RecipeDao {
     @Query("SELECT * FROM recipes WHERE id = :id")
     suspend fun getById(id: Long): RecipeEntity?
 
+    @Query("SELECT * FROM recipes WHERE name = :name LIMIT 1")
+    suspend fun findByName(name: String): RecipeEntity?
+
     @Query("SELECT * FROM recipes")
     suspend fun getAll(): List<RecipeEntity>
 

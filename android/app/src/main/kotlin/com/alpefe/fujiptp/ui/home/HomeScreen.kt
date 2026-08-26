@@ -26,7 +26,6 @@ import androidx.compose.foundation.lazy.items as lazyListItems
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ContentCopy
@@ -123,13 +122,6 @@ fun HomeScreen(viewModel: FujiViewModel) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                IconButton(onClick = { viewModel.push(Screen.Diagnostics) }) {
-                    Icon(
-                        Icons.Filled.BugReport,
-                        contentDescription = "Diagnóstico",
-                        tint = InkSoft,
-                    )
-                }
             }
         }
         item {
@@ -174,6 +166,19 @@ fun HomeScreen(viewModel: FujiViewModel) {
                     else viewModel.notifyUser("Conecta la cámara para poder asignar a un slot")
                 },
                 onClear = { viewModel.clearSlot(slot.index) },
+            )
+        }
+        // Discreet diagnostics entry (small footer text).
+        item {
+            Text(
+                "Diagnóstico",
+                style = MaterialTheme.typography.labelSmall,
+                color = InkSoft.copy(alpha = 0.5f),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { viewModel.push(Screen.Diagnostics) }
+                    .padding(vertical = 8.dp),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             )
         }
     }
@@ -424,7 +429,8 @@ private fun SlotCard(
                     FilmSimulationChip(recipe.filmSimulation)
                 } else {
                     Text(
-                        "Vacío · toca para crear",
+                        if (connected) "Vacío · toca para crear"
+                        else "Sin cámara · conecta para ver tus slots",
                         style = MaterialTheme.typography.bodyMedium,
                         color = InkSoft,
                     )

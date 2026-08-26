@@ -78,6 +78,8 @@ import com.alpefe.fujiptp.ui.theme.Ink
 import com.alpefe.fujiptp.ui.theme.InkSoft
 import com.alpefe.fujiptp.ui.theme.Lavender
 import com.alpefe.fujiptp.ui.theme.LavenderDeep
+import com.alpefe.fujiptp.ui.theme.PastelGreen
+import com.alpefe.fujiptp.ui.theme.PastelGreenDeep
 import com.alpefe.fujiptp.ui.theme.Peach
 import com.alpefe.fujiptp.ui.theme.PeachDeep
 import com.alpefe.fujiptp.ui.theme.Radius
@@ -141,6 +143,25 @@ fun EditorScreen(
                     style = MaterialTheme.typography.titleLarge,
                     modifier = Modifier.weight(1f),
                 )
+                // When editing a camera slot and connected: clear "send back".
+                if (fromSlot != null && connected) {
+                    FilledTonalButton(
+                        onClick = {
+                            dirty = false
+                            viewModel.sendToSlot(fromSlot, current)
+                            onBack()
+                        },
+                        enabled = !busy,
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = PastelGreen,
+                            contentColor = PastelGreenDeep,
+                        ),
+                    ) {
+                        Icon(Icons.Filled.Send, null, Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Enviar a C$fromSlot", fontWeight = FontWeight.Bold)
+                    }
+                }
                 TextButton(
                     onClick = {
                         dirty = false

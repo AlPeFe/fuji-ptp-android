@@ -11,7 +11,6 @@ import com.alpefe.fujiptp.data.CameraClient
 import com.alpefe.fujiptp.data.RecipeModel
 import com.alpefe.fujiptp.data.RecipeRepository
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -156,7 +155,6 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
 
     val devicePresent = MutableStateFlow(false)
     val cameraLabel = MutableStateFlow<String?>(null)
-    val messages = Channel<String>(Channel.BUFFERED)
 
     /** One-shot USB permission request consumed by MainActivity. */
     val permissionRequest = MutableStateFlow<UsbDevice?>(null)
@@ -187,11 +185,6 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
     /** Error feedback (visual, non-toast). */
     fun notifyError(message: String) {
         _feedback.value = Feedback(message, isError = true)
-    }
-
-    /** Dismisses the feedback banner (called after its animation). */
-    fun clearFeedback() {
-        if (_feedback.value != null) _feedback.value = null
     }
 
     private suspend fun <T> withBusy(label: String, block: suspend () -> T): T {
@@ -379,6 +372,9 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
                 var failed = 0
                 for (slot in 1..7) {
                     val recipe = current[slot - 1].recipe
+                    // Live per-slot progress in the loader.
+                    busyState.value = "Enviando C$slot de 7…"
+                    _slotStatus.value = SlotStatus(slot, "sending")
                     try {
                         // Empty recipe = clear that slot on the camera.
                         // Full write (incl. name): the camera needs the slot
@@ -387,10 +383,15 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
                             camera.writeRecipe(slot, recipe ?: RecipeModel(name = ""))
                         }
                         ok++
+                        _slotStatus.value = SlotStatus(slot, "ok")
                     } catch (e: Exception) {
                         failed++
+                        _slotStatus.value = SlotStatus(slot, "error")
                     }
                 }
+                busyState.value = "Refrescando C1–C7…"
+                kotlinx.coroutines.delay(600)
+                _slotStatus.value = null
                 notifyUser(
                     if (failed == 0) "Se enviaron $ok recipes a la cámara"
                     else "$ok enviadas, $failed fallaron"
@@ -568,7 +569,14 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
                 return@launch
             }
             var count = 0
+            var skipped = 0
             for ((name, filmSimulation) in recipes) {
+                // Skip recipes already in the library (same name).
+                val exists = withContext(Dispatchers.IO) { repo.findByName(name) != null }
+                if (exists) {
+                    skipped++
+                    continue
+                }
                 val discover = com.alpefe.fujiptp.data.DiscoverData.collections
                     .flatMap { it.recipes }
                     .firstOrNull { it.name == name && it.filmSimulation == filmSimulation }
@@ -582,7 +590,10 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
                 val id = withContext(Dispatchers.IO) { repo.save(recipe, newId) }
                 if (id > 0) count++
             }
-            notifyUser("Colección «$collectionName» creada con $count recipes")
+            notifyUser(
+                if (skipped > 0) "Colección «$collectionName» creada: $count nuevas, $skipped ya existían"
+                else "Colección «$collectionName» creada con $count recipes"
+            )
             push(Screen.Collection(newId, collectionName))
         }
     }
@@ -648,7 +659,14 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
         if (recipes.isEmpty()) return
         viewModelScope.launch {
             var count = 0
+            var skipped = 0
             for ((name, filmSimulation) in recipes) {
+                // Skip recipes already in the library (same name).
+                val exists = withContext(Dispatchers.IO) { repo.findByName(name) != null }
+                if (exists) {
+                    skipped++
+                    continue
+                }
                 val discover = com.alpefe.fujiptp.data.DiscoverData.collections
                     .flatMap { it.recipes }
                     .firstOrNull { it.name == name && it.filmSimulation == filmSimulation }
@@ -663,8 +681,11 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
                 if (id > 0) count++
             }
             notifyUser(
-                if (count == recipes.size) "$count recipes importadas a tu colección"
-                else "$count de ${recipes.size} recipes importadas"
+                when {
+                    skipped > 0 && count > 0 -> "$count importadas, $skipped ya existían"
+                    skipped > 0 -> "Todas ($skipped) ya estaban en tu biblioteca"
+                    else -> "$count recipes importadas a tu colección"
+                }
             )
         }
     }

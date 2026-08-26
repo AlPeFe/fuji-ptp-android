@@ -33,6 +33,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -83,6 +84,13 @@ fun BacklogScreen(viewModel: FujiViewModel) {
     var selection by remember { mutableStateOf<Set<Long>>(emptySet()) }
     val selecting = selection.isNotEmpty()
 
+    // Search filter.
+    var searchQuery by remember { mutableStateOf("") }
+    val filtered = remember(collections, searchQuery) {
+        if (searchQuery.isBlank()) collections
+        else collections.filter { it.name.contains(searchQuery.trim(), ignoreCase = true) }
+    }
+
     // Toggle selection mode: long-press a card to start selecting it.
     fun toggle(id: Long) {
         selection = if (id in selection) selection - id else selection + id
@@ -132,8 +140,51 @@ fun BacklogScreen(viewModel: FujiViewModel) {
                         )
                     }
                 }
+            } else {
+                item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(2) }) {
+                    androidx.compose.material3.OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        placeholder = { Text("Buscar colecciones…") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(Radius.control),
+                        leadingIcon = {
+                            Icon(Icons.Filled.Search, contentDescription = null, tint = InkSoft)
+                        },
+                        trailingIcon = {
+                            if (searchQuery.isNotEmpty()) {
+                                IconButton(onClick = { searchQuery = "" }) {
+                                    Icon(Icons.Filled.Close, contentDescription = "Limpiar", tint = InkSoft)
+                                }
+                            }
+                        },
+                        colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = Surface,
+                            unfocusedContainerColor = Surface,
+                            focusedBorderColor = PeachDeep.copy(alpha = 0.6f),
+                            unfocusedBorderColor = Color(0xFFEDE7E0),
+                        ),
+                    )
+                }
             }
-            items(collections, key = { it.id }) { collection ->
+            if (searchQuery.isNotBlank() && filtered.isEmpty()) {
+                item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(2) }) {
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(top = 32.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            "No hay colecciones con «${searchQuery.trim()}»",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = InkSoft,
+                        )
+                    }
+                }
+            }
+            items(filtered, key = { it.id }) { collection ->
                 val selected = collection.id in selection
                 CollectionCard(
                     collection = collection,

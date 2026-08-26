@@ -27,6 +27,9 @@ class RecipeRepository(private val dao: RecipeDao) {
 
     suspend fun get(id: Long): RecipeModel? = dao.getById(id)?.toModel()
 
+    /** Returns the first recipe with this exact name (used for dedupe). */
+    suspend fun findByName(name: String): RecipeEntity? = dao.findByName(name)
+
     suspend fun delete(id: Long) {
         dao.unassignRecipe(id)
         dao.delete(id)
