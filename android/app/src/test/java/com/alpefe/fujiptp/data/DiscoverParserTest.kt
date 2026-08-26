@@ -78,6 +78,31 @@ class DiscoverParserTest {
     }
 
     @Test
+    fun parsesPacificBlues() {
+        val r = DiscoverRecipe(
+            "Pacific Blues", "ClassicNegative",
+            "Film Simulation: Classic Negative · Grain: Strong Large · Color Chrome: Strong · FX Blue: Weak · WB: 5800K (R +1, B -3) · DR400 · Highlight: -2 · Shadow: +3 · Color: +4 · Sharpness: -2 · NR: -4 · Clarity: -3",
+            "",
+        )
+        val m = r.toModel()
+        assertEquals(FilmSimulation.ClassicNegative, m.filmSimulation)
+        assertEquals(GrainEffect.StrongLarge, m.grainEffect)
+        assertEquals(EffectStrength.Strong, m.colorChrome)
+        assertEquals(EffectStrength.Weak, m.colorChromeFxBlue)
+        assertEquals(WhiteBalanceMode.ColorTemperature, m.whiteBalanceMode)
+        assertEquals(5800, m.whiteBalanceTemperature)
+        assertEquals(1, m.whiteBalanceShiftR)
+        assertEquals(-3, m.whiteBalanceShiftB)
+        assertEquals(DynamicRange.Dr400, m.dynamicRange)
+        assertEquals(-2f, m.highlight)
+        assertEquals(3f, m.shadow)
+        assertEquals(4f, m.color)
+        assertEquals(-2f, m.sharpness)
+        assertEquals(-4, m.noiseReduction)
+        assertEquals(-3f, m.clarity)
+    }
+
+    @Test
     fun parsesNewspaper() {
         val r = DiscoverRecipe(
             "Newspaper",
