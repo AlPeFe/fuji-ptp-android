@@ -47,6 +47,7 @@ sealed interface Screen {
     data object Backlog : Screen
     data object Discover : Screen
     data class Collection(val collectionId: Long, val name: String) : Screen
+    data object Diagnostics : Screen
     data class DiscoverCollection(val id: String, val name: String) : Screen
     data class DiscoverRecipeDetail(val collectionId: String, val recipeId: String) : Screen
     data class Editor(

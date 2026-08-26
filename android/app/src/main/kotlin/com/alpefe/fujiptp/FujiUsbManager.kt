@@ -114,7 +114,7 @@ class UsbIoBridge(
 ) : UsbIo {
     override fun send(data: ByteArray): Int {
         val count = connection.bulkTransfer(bulkOut, data, data.size, TIMEOUT)
-        android.util.Log.d(TAG, "USB TX ${data.size}B -> $count (first ${data.take(12).joinToString { "%02x".format(it) }})")
+        Diagnostics.log(TAG, "TX ${data.size}B -> $count (${data.take(12).joinToString { "%02x".format(it) }})")
         return count
     }
 
@@ -123,7 +123,7 @@ class UsbIoBridge(
         // so a single bulkTransfer never drops trailing bytes.
         val buffer = ByteArray(size)
         val count = connection.bulkTransfer(bulkIn, buffer, size, TIMEOUT)
-        android.util.Log.d(TAG, "USB RX <- $count of $size (first ${buffer.take(12).joinToString { "%02x".format(it) }})")
+        Diagnostics.log(TAG, "RX <- $count of $size (${buffer.take(12).joinToString { "%02x".format(it) }})")
         check(count >= 0) { "USB receive failed: $count" }
         return buffer.copyOf(count)
     }

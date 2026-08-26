@@ -43,6 +43,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.alpefe.fujiptp.ui.editor.EditorScreen
 import com.alpefe.fujiptp.ui.home.HomeScreen
+import com.alpefe.fujiptp.ui.DiagnosticsScreen
 import com.alpefe.fujiptp.ui.home.backlog.BacklogScreen
 import com.alpefe.fujiptp.ui.home.backlog.CollectionScreen
 import com.alpefe.fujiptp.ui.home.discover.DiscoverCollectionScreen
@@ -116,6 +117,10 @@ fun FujiApp(viewModel: FujiViewModel = viewModel()) {
                         collectionName = s.name,
                         onBack = { viewModel.pop() },
                     )
+                }
+                is Screen.Diagnostics -> {
+                    BackHandler { viewModel.pop() }
+                    DiagnosticsScreen(onBack = { viewModel.pop() })
                 }
                 is Screen.DiscoverCollection -> {
                     BackHandler { viewModel.pop() }

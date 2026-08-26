@@ -48,6 +48,18 @@ fn log_info(msg: &str) {
     unsafe {
         __android_log_write(ANDROID_LOG_INFO, tag.as_ptr(), text.as_ptr());
     }
+    // Also surface the line to Kotlin for the in-app diagnostics screen.
+    if let Some(mut env) = VM.get().and_then(|vm| vm.attach_current_thread().ok()) {
+        if let Ok(line) = env.new_string(msg) {
+            let _ = env.call_static_method(
+                "com/alpefe/fujiptp/Diagnostics",
+                "onNativeLog",
+                "(Ljava/lang/String;)V",
+                &[JValue::Object(&line)],
+            );
+            let _ = env.exception_clear();
+        }
+    }
 }
 
 #[cfg(not(target_os = "android"))]
