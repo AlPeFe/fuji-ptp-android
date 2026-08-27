@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
@@ -75,10 +76,12 @@ import com.alpefe.fujiptp.ui.theme.Surface
 @Composable
 fun BacklogScreen(viewModel: FujiViewModel) {
     val collections by viewModel.collections.collectAsStateWithLifecycle()
+    val backlog by viewModel.backlog.collectAsStateWithLifecycle()
 
     var showCreate by remember { mutableStateOf(false) }
     var menuFor by remember { mutableStateOf<CollectionUi?>(null) }
     var deleting by remember { mutableStateOf<CollectionUi?>(null) }
+    var confirmClearAll by remember { mutableStateOf(false) }
 
     // Multi-select for deletion.
     var selection by remember { mutableStateOf<Set<Long>>(emptySet()) }
@@ -105,24 +108,40 @@ fun BacklogScreen(viewModel: FujiViewModel) {
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(2) }) {
-                Column {
-                    Text(
-                        "Biblioteca",
-                        style = MaterialTheme.typography.displaySmall,
-                        color = MaterialTheme.colorScheme.onBackground,
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        if (collections.isEmpty()) {
-                            "Crea tu primera colección para empezar"
-                        } else if (selecting) {
-                            "${selection.size} seleccionada${if (selection.size == 1) "" else "s"}"
-                        } else {
-                            "${collections.size} colección${if (collections.size == 1) "" else "es"}"
-                        },
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = if (selecting) PeachDeep else MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            "Biblioteca",
+                            style = MaterialTheme.typography.displaySmall,
+                            color = MaterialTheme.colorScheme.onBackground,
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            if (collections.isEmpty()) {
+                                "Crea tu primera colección para empezar"
+                            } else if (selecting) {
+                                "${selection.size} seleccionada${if (selection.size == 1) "" else "s"}"
+                            } else {
+                                "${collections.size} colección${if (collections.size == 1) "" else "es"}"
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (selecting) PeachDeep else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    // Empty the whole library (with confirmation).
+                    IconButton(
+                        onClick = { confirmClearAll = true },
+                        enabled = collections.isNotEmpty() || backlog.isNotEmpty(),
+                    ) {
+                        Icon(
+                            Icons.Filled.DeleteSweep,
+                            contentDescription = "Vaciar biblioteca",
+                            tint = InkSoft.copy(alpha = 0.6f),
+                        )
+                    }
                 }
             }
             if (collections.isEmpty()) {
@@ -308,6 +327,33 @@ fun BacklogScreen(viewModel: FujiViewModel) {
             },
             dismissButton = {
                 TextButton(onClick = { deleting = null }) { Text("Cancelar") }
+            },
+        )
+    }
+
+    // Confirm emptying the whole library.
+    if (confirmClearAll) {
+        AlertDialog(
+            onDismissRequest = { confirmClearAll = false },
+            title = { Text("Vaciar biblioteca") },
+            text = {
+                Text(
+                    "Se borrarán todas tus recipes y colecciones (excepto la por defecto). " +
+                        "Podrás volver a importarlas desde Discover. ¿Continuar?"
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        confirmClearAll = false
+                        viewModel.clearLibrary()
+                    },
+                ) {
+                    Text("Vaciar", color = Danger, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmClearAll = false }) { Text("Cancelar") }
             },
         )
     }

@@ -101,6 +101,20 @@ interface RecipeDao {
     @Query("DELETE FROM recipe_collections WHERE collectionId = :collectionId")
     suspend fun clearCollection(collectionId: Long)
 
+    // --- clear library ------------------------------------------------------
+
+    @Query("DELETE FROM recipe_collections")
+    suspend fun clearAllMemberships()
+
+    @Query("DELETE FROM recipes")
+    suspend fun clearAllRecipes()
+
+    @Query("DELETE FROM collections WHERE isDefault = 0")
+    suspend fun clearAllNonDefaultCollections()
+
+    @Query("DELETE FROM slots")
+    suspend fun clearAllSlots()
+
     // --- recipes in a collection ------------------------------------------------
 
     @Query(

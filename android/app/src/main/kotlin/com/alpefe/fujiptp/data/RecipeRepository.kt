@@ -130,6 +130,15 @@ class RecipeRepository(private val dao: RecipeDao) {
         return true
     }
 
+    /** Empties the whole library: every recipe, its slot assignments, and
+     *  every non-default collection. The default collection survives. */
+    suspend fun clearLibrary() {
+        dao.clearAllMemberships()
+        dao.clearAllRecipes()
+        dao.clearAllSlots()
+        dao.clearAllNonDefaultCollections()
+    }
+
     suspend fun addRecipeToCollection(recipeId: Long, collectionId: Long) {
         dao.addRecipeToCollection(recipeId, collectionId)
     }

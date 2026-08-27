@@ -62,6 +62,37 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
     private val usbManager = FujiUsbManager(app)
     private val repo = RecipeRepository(AppDatabase.get(app).recipeDao())
 
+    init {
+        // One-shot repair: recipes imported before Discover carried real
+        // values were saved with defaults. Sync library recipes with the
+        // Discover data so previously-imported recipes get their real
+        // values without requiring a re-import.
+        syncDiscoverValues()
+    }
+
+    /**
+     * For every Discover recipe that has a same-named recipe in the library,
+     * refresh the library recipe's values from Discover (film sim, grain,
+     * tone, WB, DR, etc.). Runs once per app start.
+     */
+    private fun syncDiscoverValues() {
+        viewModelScope.launch {
+            val discover = com.alpefe.fujiptp.data.DiscoverData.collections.flatMap { it.recipes }
+            var updated = 0
+            for (d in discover) {
+                val existing = withContext(Dispatchers.IO) { repo.findByName(d.name) } ?: continue
+                val model = d.toModel()
+                // Skip if the existing recipe already matches the real values.
+                if (existing.toModel().sameValuesAs(model)) continue
+                withContext(Dispatchers.IO) { repo.updateRecipe(model.copy(id = existing.id)) }
+                updated++
+            }
+            if (updated > 0) {
+                notifyUser("$updated recipes actualizadas con sus valores reales")
+            }
+        }
+    }
+
     // --- persisted data ----------------------------------------------------
     val backlog: StateFlow<List<RecipeModel>> = repo.backlog
         .map { list -> list.map { it.toModel() } }
@@ -641,6 +672,16 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
                 if (skippedDefault) "$count eliminadas · la por defecto no se puede borrar"
                 else "$count colecciones eliminadas"
             )
+        }
+    }
+
+    /** Empties the library (recipes, slots and non-default collections). */
+    fun clearLibrary() {
+        viewModelScope.launch {
+            withBusy("Vaciando biblioteca…") {
+                withContext(Dispatchers.IO) { repo.clearLibrary() }
+            }
+            notifyUser("Biblioteca vaciada · la colección por defecto sigue")
         }
     }
 
