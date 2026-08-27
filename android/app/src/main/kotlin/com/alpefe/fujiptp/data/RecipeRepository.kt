@@ -139,6 +139,24 @@ class RecipeRepository(private val dao: RecipeDao) {
         dao.clearAllNonDefaultCollections()
     }
 
+    /** Makes sure the default "Todas" collection exists (fresh installs
+     *  have no migration to seed it). */
+    suspend fun ensureDefaultCollection() {
+        if (dao.getDefaultCollectionId() == null) {
+            val now = System.currentTimeMillis()
+            dao.upsertCollection(
+                CollectionEntity(
+                    id = 0,
+                    name = "Todas",
+                    colorHex = 0xFFF9E0E4,
+                    isDefault = true,
+                    createdAt = now,
+                    updatedAt = now,
+                )
+            )
+        }
+    }
+
     suspend fun addRecipeToCollection(recipeId: Long, collectionId: Long) {
         dao.addRecipeToCollection(recipeId, collectionId)
     }

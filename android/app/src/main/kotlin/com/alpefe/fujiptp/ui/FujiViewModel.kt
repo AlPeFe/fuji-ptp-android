@@ -63,10 +63,11 @@ class FujiViewModel(app: Application) : AndroidViewModel(app) {
     private val repo = RecipeRepository(AppDatabase.get(app).recipeDao())
 
     init {
-        // One-shot repair: recipes imported before Discover carried real
-        // values were saved with defaults. Sync library recipes with the
-        // Discover data so previously-imported recipes get their real
-        // values without requiring a re-import.
+        // Guarantee the default "Todas" collection exists (fresh DBs have no
+        // migration to seed it), then repair library values from Discover.
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { repo.ensureDefaultCollection() }
+        }
         syncDiscoverValues()
     }
 
