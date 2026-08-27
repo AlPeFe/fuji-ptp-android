@@ -40,7 +40,9 @@ El protocolo PTP/Fujifilm está implementado **100% en Rust** en un core indepen
 
 ## 🖼️ Capturas
 
-*Próximamente — añade tus capturas en `docs/screenshots/`.*
+| **Activas** — tus 7 slots de cámara | **Discover** — colecciones públicas | **Editor** — recipe completa |
+| :---: | :---: | :---: |
+| <img src="docs/screenshots/home.png" width="220" alt="Pantalla Activas"> | <img src="docs/screenshots/discover.png" width="220" alt="Pantalla Discover"> | <img src="docs/screenshots/editor.png" width="220" alt="Pantalla Editor"> |
 
 ## 🛠️ Stack
 
