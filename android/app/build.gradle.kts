@@ -21,6 +21,10 @@ android {
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // Sign with the debug key so the release APK installs over the
+            // debug builds already on the device (no keystore management
+            // for a personal distribution yet).
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 
